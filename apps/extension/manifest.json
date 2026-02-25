@@ -1,0 +1,63 @@
+{
+    "manifest_version": 3,
+    "name": "Trailback",
+    "version": "1.0.0",
+    "description": "Record and rollback every AI agent action across Gmail, Docs & Slack",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "identity",
+        "alarms"
+    ],
+    "host_permissions": [
+        "https://mail.google.com/*",
+        "https://docs.google.com/*",
+        "https://drive.google.com/*",
+        "https://app.slack.com/*",
+        "https://*.googleapis.com/*"
+    ],
+    "background": {
+        "service_worker": "background/service-worker.js",
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://mail.google.com/*"
+            ],
+            "js": [
+                "content-scripts/gmail-interceptor.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://docs.google.com/document/*"
+            ],
+            "js": [
+                "content-scripts/docs-interceptor.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://app.slack.com/*"
+            ],
+            "js": [
+                "content-scripts/slack-interceptor.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "action": {
+        "default_popup": "popup/popup.html",
+        "default_icon": {
+            "16": "icons/16.png",
+            "48": "icons/48.png"
+        }
+    },
+    "icons": {
+        "128": "icons/128.png"
+    }
+}
