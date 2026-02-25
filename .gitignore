@@ -1,0 +1,90 @@
+# ─────────────────────────────────────────
+# Trailback — .gitignore
+# ─────────────────────────────────────────
+
+# ── OS ────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Environment Variables ─────────────────
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+
+# ── Node / pnpm ───────────────────────────
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Next.js ───────────────────────────────
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+
+# ── Python / Backend ──────────────────────
+apps/backend/venv/
+apps/backend/__pycache__/
+apps/backend/**/__pycache__/
+apps/backend/**/*.pyc
+apps/backend/**/*.pyo
+apps/backend/**/*.pyd
+apps/backend/.pytest_cache/
+apps/backend/htmlcov/
+apps/backend/.coverage
+apps/backend/coverage.xml
+apps/backend/dist/
+apps/backend/build/
+apps/backend/*.egg-info/
+*.pyc
+*.pyo
+__pycache__/
+
+# ── Turborepo ─────────────────────────────
+.turbo/
+
+# ── TypeScript ────────────────────────────
+*.tsbuildinfo
+
+# ── Testing ───────────────────────────────
+coverage/
+playwright-report/
+test-results/
+.nyc_output/
+
+# ── Chrome Extension Build ────────────────
+apps/extension/dist/
+apps/extension/*.zip
+
+# ── IDE / Editor ──────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ── Logs ──────────────────────────────────
+logs/
+*.log
+
+# ── Misc ──────────────────────────────────
+.vercel/
+.render/
+*.pem
+*.key
