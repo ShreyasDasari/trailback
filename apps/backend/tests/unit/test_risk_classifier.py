@@ -84,3 +84,78 @@ class TestScoreValidity:
         assert isinstance(result, RiskResult)
         assert result.level in ("low", "medium", "high", "critical")
         assert isinstance(result.reasons, list)
+
+
+# ── NEW: TestExternalDomain ───────────────────────────────────
+# Tests for the Group 3 bug fix — external domain detection
+# must compare recipient domain against sender domain only.
+class TestExternalDomain:
+    def test_internal_email_not_flagged_as_external(self):
+        """
+        Sending to a colleague on the same domain should NOT
+        trigger the external domain reason.
+        """
+        result = classify_event(
+            app='gmail',
+            action_type='email.send',
+            metadata={
+                'to': ['colleague@mycompany.com'],
+                'from': 'shreyas@mycompany.com'
+            },
+            before=None, after=None, agent=None
+        )
+        assert not any('external' in r.lower() for r in result.reasons)
+
+    def test_external_email_flagged_correctly(self):
+        """
+        Sending to a recipient on a different domain SHOULD
+        trigger the external domain reason.
+        """
+        result = classify_event(
+            app='gmail',
+            action_type='email.send',
+            metadata={
+                'to': ['john@otherdomain.com'],
+                'from': 'shreyas@mycompany.com'
+            },
+            before=None, after=None, agent=None
+        )
+        assert any('external' in r.lower() for r in result.reasons)
+
+    def test_mixed_internal_and_external_recipients(self):
+        """
+        Only external recipients should be counted.
+        Internal ones should be excluded from the external count.
+        """
+        result = classify_event(
+            app='gmail',
+            action_type='email.send',
+            metadata={
+                'to': [
+                    'colleague@mycompany.com',   # internal — should NOT count
+                    'john@otherdomain.com',       # external — should count
+                    'sarah@anotherdomain.com',    # external — should count
+                ],
+                'from': 'shreyas@mycompany.com'
+            },
+            before=None, after=None, agent=None
+        )
+        assert any('external' in r.lower() for r in result.reasons)
+        # Should say 2 external, not 3
+        assert any('2 external' in r for r in result.reasons)
+
+    def test_no_sender_domain_still_works(self):
+        """
+        If no 'from' field is present, the classifier should
+        not crash — it should treat all recipients as external.
+        """
+        result = classify_event(
+            app='gmail',
+            action_type='email.send',
+            metadata={
+                'to': ['john@otherdomain.com'],
+            },
+            before=None, after=None, agent=None
+        )
+        # Should not raise any exception
+        assert isinstance(result, RiskResult)

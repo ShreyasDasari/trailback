@@ -1,27 +1,51 @@
+# ─────────────────────────────────────────────────────────────
+# Trailback — Risk Classification Engine
+# Pure Python, no external calls, no LLM, no non-determinism.
+# Runs synchronously during event ingestion. Target: < 5ms.
+# ─────────────────────────────────────────────────────────────
+
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
+from datetime import datetime, timezone
 import json
+
+
+# ─────────────────────────────────────────────────────────────
+# Output Contract
+# ─────────────────────────────────────────────────────────────
 
 @dataclass
 class RiskResult:
-    level: str
-    score: int
-    reasons: list = field(default_factory=list)
+    level: str          # "low" | "medium" | "high" | "critical"
+    score: int          # 0–100 inclusive
+    reasons: list = field(default_factory=list)  # Human-readable explanations
+
+
+# ─────────────────────────────────────────────────────────────
+# Rule Group 1 — Action Type Base Scores
+# ─────────────────────────────────────────────────────────────
 
 ACTION_BASE_SCORES = {
-    'email.send': 10,
-    'email.send_bulk': 40,
-    'email.delete': 5,
-    'email.reply_all': 15,
-    'doc.edit': 8,
-    'doc.delete': 30,
-    'doc.share': 20,
-    'doc.comment': 2,
-    'message.post': 8,
-    'message.post_public': 20,
-    'message.delete': 5,
-    'file.delete': 35,
+    'email.send':           10,
+    'email.send_bulk':      40,
+    'email.delete':          5,
+    'email.reply_all':      15,
+    'doc.edit':              8,
+    'doc.delete':           30,
+    'doc.share':            20,
+    'doc.comment':           2,
+    'message.post':          8,
+    'message.post_public':  20,
+    'message.delete':        5,
+    'file.delete':          35,
+    'calendar.create':       8,
+    'calendar.delete':      12,
 }
+
+
+# ─────────────────────────────────────────────────────────────
+# Main Classifier
+# ─────────────────────────────────────────────────────────────
 
 def classify_event(
     app: str,
@@ -31,13 +55,17 @@ def classify_event(
     after: Optional[Dict],
     agent=None
 ) -> RiskResult:
+    """
+    Classify an agent action and return a RiskResult with level,
+    numeric score (0-100), and human-readable reasons.
+    """
     score = 0
     reasons = []
 
-    # Group 1: Action base score
+    # ── Group 1: Action type base score ──────────────────────
     score += ACTION_BASE_SCORES.get(action_type, 5)
 
-    # Group 2: Recipient breadth (Gmail only)
+    # ── Group 2: Recipient breadth (Gmail only) ───────────────
     if app == 'gmail':
         recipients = metadata.get('to', [])
         n = len(recipients)
@@ -53,14 +81,26 @@ def classify_event(
         elif n >= 2:
             score += 5
 
-    # Group 3: External domain (Gmail only)
+    # ── Group 3: External domain check (Gmail only) ───────────
+    # Only flags recipients whose domain differs from the sender's domain.
+    # Fixes the previous bug where ALL recipients were flagged as external.
     if app == 'gmail':
         recipients = metadata.get('to', [])
-        if recipients:
-            score += 15
-            reasons.append(f"Email sent to {len(recipients)} external address(es)")
+        sender = metadata.get('from', '')
 
-    # Group 4: Document change magnitude (Docs only)
+        # Extract sender domain — e.g. "shreyas@mycompany.com" → "mycompany.com"
+        sender_domain = sender.split('@')[-1].lower() if '@' in sender else ''
+
+        external = [
+            r for r in recipients
+            if '@' in r and r.split('@')[-1].lower() != sender_domain
+        ]
+
+        if external:
+            score += 15
+            reasons.append(f"Email sent to {len(external)} external address(es)")
+
+    # ── Group 4: Document change magnitude (Docs only) ────────
     if app == 'gdocs' and before and after:
         delta = abs(len(json.dumps(after)) - len(json.dumps(before)))
         if delta >= 10000:
@@ -73,37 +113,40 @@ def classify_event(
             score += 10
             reasons.append(f"Moderate document change (~{delta} chars)")
 
-    # Group 5: Slack channel type
+    # ── Group 5: Slack channel type ───────────────────────────
     if app == 'slack':
-        if metadata.get('channel_type') == 'public':
+        channel_type = metadata.get('channel_type')
+        if channel_type == 'public':
             score += 20
             reasons.append("Posted to a public Slack channel")
-        elif metadata.get('channel_type') == 'private':
+        elif channel_type == 'private':
             score += 5
 
-    # Group 6: Timing (outside business hours)
-    from datetime import datetime, timezone
+    # ── Group 6: Timing — outside business hours / weekend ────
     now = datetime.now(timezone.utc)
     if now.hour < 8 or now.hour >= 20:
         score += 5
         reasons.append("Action taken outside business hours")
-    if now.weekday() >= 5:
+    if now.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
         score += 8
         reasons.append("Action taken on a weekend")
 
-    # Group 7: Agent trust score modifier
+    # ── Group 7: Agent trust score modifier ───────────────────
+    # Applied AFTER all additive rules. Multiplier only.
     if agent and hasattr(agent, 'trust_score'):
         if agent.trust_score < 0.7:
             score = int(score * 1.3)
-            reasons.append(f"Agent has a low trust score ({agent.trust_score:.0%})")
+            reasons.append(
+                f"Agent has a low trust score ({agent.trust_score:.0%})"
+            )
         elif agent.trust_score < 0.9:
             score = int(score * 1.15)
             reasons.append("Agent has a below-average trust score")
 
-    # Clamp score to 0-100
+    # ── Clamp score to [0, 100] ───────────────────────────────
     score = min(100, max(0, score))
 
-    # Determine level
+    # ── Determine level ───────────────────────────────────────
     if score >= 70:
         level = 'critical'
     elif score >= 40:
