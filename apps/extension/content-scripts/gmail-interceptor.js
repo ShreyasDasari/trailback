@@ -52,7 +52,7 @@
         const data = await responseClone.json();
 
         const event = {
-          type: 'EVENT_CAPTURED',
+          type: 'TRAILBACK_EVENT',
           payload: {
             app: 'gmail',
             action_type: 'email.send',
