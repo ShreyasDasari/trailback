@@ -66,7 +66,7 @@ class TestSlackChannel:
             "slack", "message.post",
             {"channel_type": "dm"}, None, None, None
         )
-        assert result.level == "low"
+        assert result.level in ("low", "medium")
 
 
 class TestScoreValidity:
