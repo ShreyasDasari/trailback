@@ -363,3 +363,29 @@ async def initiate_rollback(event_id: str, payload: RollbackRequest):
                 "rollback_id":    rollback_id,
             }
         )
+
+# ─────────────────────────────────────────────────────────────
+# GET /api/v1/rollback/{rollback_id}/status — Poll rollback result
+# ─────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/rollback/{rollback_id}/status")
+async def get_rollback_status(rollback_id: str):
+
+    result = supabase.table("rollbacks") \
+        .select("id, event_id, result, failure_reason, api_response, executed_at") \
+        .eq("id", rollback_id) \
+        .execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Rollback not found")
+
+    row = result.data[0]
+
+    return {
+        "rollback_id":    row["id"],
+        "event_id":       row["event_id"],
+        "result":         row["result"],          # pending | success | failed | partial
+        "failure_reason": row["failure_reason"],  # null on success
+        "api_response":   row["api_response"],    # null on pending/failed
+        "executed_at":    row["executed_at"],
+    }
