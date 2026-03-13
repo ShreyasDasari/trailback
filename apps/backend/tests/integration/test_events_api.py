@@ -3,14 +3,12 @@ import os
 import sys
 from unittest.mock import patch, MagicMock
 
-# ── Set dummy env variables BEFORE any imports ────────────────
 os.environ["SUPABASE_URL"] = "https://dummy.supabase.co"
 os.environ["SUPABASE_ANON_KEY"] = "dummy-anon-key"
 os.environ["SUPABASE_SERVICE_KEY"] = "dummy-service-key"
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-# ── Mock Supabase before importing app ────────────────────────
 mock_supabase = MagicMock()
 
 mock_insert = MagicMock()
@@ -37,9 +35,15 @@ with patch('db.supabase_client.supabase', mock_supabase):
 client = TestClient(app)
 
 
-# ── Test Cases ────────────────────────────────────────────────
-
 class TestEventsAPI:
+
+    def setup_method(self):
+        mock_supabase.reset_mock()
+        mock_supabase.table.side_effect = None
+        mock_supabase.table.return_value = MagicMock(
+            insert=MagicMock(return_value=mock_insert),
+            select=MagicMock(return_value=mock_select)
+        )
 
     def test_post_events_valid_gmail_payload_returns_201(self):
         """POST /api/v1/events with valid Gmail payload returns 201"""
