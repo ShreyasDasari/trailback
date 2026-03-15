@@ -177,13 +177,13 @@ export default function EventDiffPage({ params }: PageProps) {
             <span className="text-muted-foreground">Created: </span>
             <span className="text-foreground">{formatDate(event.created_at)}</span>
           </div>
-          {event.metadata?.recipient && (
+          {event.metadata?.recipient != null && (
             <div>
               <span className="text-muted-foreground">Recipient: </span>
               <span className="text-foreground">{String(event.metadata.recipient)}</span>
             </div>
           )}
-          {event.metadata?.subject && (
+          {event.metadata?.subject != null && (
             <div>
               <span className="text-muted-foreground">Subject: </span>
               <span className="text-foreground">{String(event.metadata.subject)}</span>
