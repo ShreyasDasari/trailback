@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 5%;
+    --foreground: 240 10% 95%;
+    --card: 240 6% 10%;
+    --card-foreground: 240 10% 95%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 240 10% 95%;
+    --primary: 160 84% 66%;
+    --primary-foreground: 240 6% 10%;
+    --secondary: 240 5% 16%;
+    --secondary-foreground: 240 10% 95%;
+    --muted: 240 5% 16%;
+    --muted-foreground: 240 5% 50%;
+    --accent: 160 84% 66%;
+    --accent-foreground: 240 6% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 240 10% 95%;
+    --border: 240 5% 18%;
+    --input: 240 5% 18%;
+    --ring: 160 84% 66%;
+    --radius: 0.5rem;
+    --chart-1: 160 84% 66%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 280 65% 60%;
+    --chart-4: 47 95% 53%;
+    --chart-5: 0 84% 60%;
+  }
+
+  .dark {
+    --background: 0 0% 5%;
+    --foreground: 240 10% 95%;
+    --card: 240 6% 10%;
+    --card-foreground: 240 10% 95%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 240 10% 95%;
+    --primary: 160 84% 66%;
+    --primary-foreground: 240 6% 10%;
+    --secondary: 240 5% 16%;
+    --secondary-foreground: 240 10% 95%;
+    --muted: 240 5% 16%;
+    --muted-foreground: 240 5% 50%;
+    --accent: 160 84% 66%;
+    --accent-foreground: 240 6% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 240 10% 95%;
+    --border: 240 5% 18%;
+    --input: 240 5% 18%;
+    --ring: 160 84% 66%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(240, 6%, 10%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(240, 5%, 26%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(240, 5%, 36%);
+}
+
+/* Pulse animation for critical badges */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Skeleton loading animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(240, 5%, 16%) 25%,
+    hsl(240, 5%, 22%) 50%,
+    hsl(240, 5%, 16%) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}

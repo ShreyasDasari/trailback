@@ -88,3 +88,4 @@ logs/
 .render/
 *.pem
 *.key
+.next/
