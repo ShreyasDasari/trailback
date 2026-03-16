@@ -329,10 +329,50 @@ async def initiate_rollback(
                 raise ValueError(result.get("error", "Gmail trash failed"))
 
         elif event["app"] == "slack":
-            raise ValueError("Slack rollback not yet implemented")
+            channel = event.get("metadata", {}).get("channel")
+            ts = event.get("metadata", {}).get("ts")
+            if not channel or not ts:
+                raise ValueError("No channel or ts found in event metadata")
+
+            connector = supabase.table("connectors") \
+                .select("oauth_token") \
+                .eq("app", "slack") \
+                .eq("user_id", event.get("user_id")) \
+                .execute()
+
+            if not connector.data or not connector.data[0].get("oauth_token"):
+                raise ValueError("Slack connector not found or not authorized")
+
+            bot_token = connector.data[0]["oauth_token"]
+
+            from connectors.slack import delete_message
+            result = await delete_message(channel, ts, bot_token)
+
+            if not result.get("success"):
+                raise ValueError(result.get("error", "Slack delete failed"))
 
         elif event["app"] == "gdocs":
-            raise ValueError("Google Docs rollback not yet implemented")
+            file_id = event.get("metadata", {}).get("file_id")
+            revision_id = event.get("metadata", {}).get("revision_id")
+            if not file_id or not revision_id:
+                raise ValueError("No file_id or revision_id found in event metadata")
+
+            connector = supabase.table("connectors") \
+                .select("oauth_token") \
+                .eq("app", "gdocs") \
+                .eq("user_id", event.get("user_id")) \
+                .execute()
+
+            if not connector.data or not connector.data[0].get("oauth_token"):
+                raise ValueError("Google Docs connector not found or not authorized")
+
+            oauth_token = connector.data[0]["oauth_token"]
+
+            from connectors.gdocs import restore_revision
+            result = await restore_revision(file_id, revision_id, oauth_token)
+
+            if not result.get("success"):
+                raise ValueError(result.get("error", "Google Docs restore failed"))
 
         else:
             raise ValueError(f"Unknown app: {event['app']}")
