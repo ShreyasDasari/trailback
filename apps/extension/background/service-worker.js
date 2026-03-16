@@ -16,7 +16,7 @@ import { getQueue, saveQueue, clearEvent } from '../utils/queue.js';
 // Config
 // ─────────────────────────────────────────────────────────────
 
-const API_BASE          = 'http://localhost:8000';
+const API_BASE          = 'https://trailback-gby8.onrender.com';
 const EVENTS_ENDPOINT   = `${API_BASE}/api/v1/events`;
 const ALARM_FLUSH       = 'trailback-flush';
 const ALARM_POLL        = 'trailback-gmail-poll';
