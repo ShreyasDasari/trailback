@@ -66,6 +66,49 @@ export default function RollbackPage({ params }: PageProps) {
 
   // Poll for rollback status
   const pollRollbackStatus = useCallback(async (rollbackId: string) => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    
+    try {
+      if (apiUrl) {
+        // Try backend API first
+        const session = await supabase.auth.getSession()
+        const statusResponse = await fetch(
+          `${apiUrl}/api/v1/rollback/${rollbackId}/status`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.data.session?.access_token}`,
+            },
+          }
+        )
+
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json()
+          
+          // Map backend status to local state
+          const result = statusData.status === "success" ? "success" : 
+                        statusData.status === "failed" ? "failed" : null
+          
+          if (result) {
+            await supabase
+              .from("rollbacks")
+              .update({
+                result,
+                failure_reason: result === "failed" ? statusData.error : null,
+                executed_at: new Date().toISOString(),
+              })
+              .eq("id", rollbackId)
+
+            setRollback(prev => prev ? { ...prev, result } : null)
+            return result
+          }
+          return null
+        }
+      }
+    } catch (error) {
+      console.error("[v0] Backend status poll error:", error)
+    }
+
+    // Fallback to Supabase polling
     const { data } = await supabase
       .from("rollbacks")
       .select("*")
@@ -132,36 +175,90 @@ export default function RollbackPage({ params }: PageProps) {
         .update({ rollback_status: "in_progress" })
         .eq("id", event.id)
 
-      // Simulate API call to rollback service
-      // In production, this would call the actual rollback API
-      setTimeout(async () => {
-        // For demo purposes, randomly succeed or fail
-        const success = Math.random() > 0.2 // 80% success rate for demo
-        
-        await supabase
-          .from("rollbacks")
-          .update({
-            result: success ? "success" : "failed",
-            failure_reason: success ? null : "Unable to undo action - the content may have been modified externally",
-            executed_at: new Date().toISOString(),
-          })
-          .eq("id", rollbackData.id)
+      // Call backend rollback API
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      if (!apiUrl) {
+        throw new Error("API URL not configured")
+      }
 
-        if (success) {
-          await supabase
-            .from("events")
-            .update({ 
-              status: "rolled_back",
-              rollback_status: "completed" 
-            })
-            .eq("id", event.id)
-        } else {
-          await supabase
-            .from("events")
-            .update({ rollback_status: "failed" })
-            .eq("id", event.id)
+      const rollbackResponse = await fetch(`${apiUrl}/api/v1/rollback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({
+          event_id: event.id,
+          rollback_id: rollbackData.id,
+          user_id: user.id,
+        }),
+      })
+
+      if (!rollbackResponse.ok) {
+        throw new Error("Failed to initiate rollback on backend")
+      }
+
+      // Poll backend for status with 2-second intervals
+      const statusInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(
+            `${apiUrl}/api/v1/rollback/${rollbackData.id}/status`,
+            {
+              headers: {
+                Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              },
+            }
+          )
+
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json()
+            
+            if (statusData.status === "success") {
+              clearInterval(statusInterval)
+              await supabase
+                .from("rollbacks")
+                .update({
+                  result: "success",
+                  executed_at: new Date().toISOString(),
+                })
+                .eq("id", rollbackData.id)
+
+              await supabase
+                .from("events")
+                .update({ 
+                  status: "rolled_back",
+                  rollback_status: "completed" 
+                })
+                .eq("id", event.id)
+
+              setStep("success")
+            } else if (statusData.status === "failed") {
+              clearInterval(statusInterval)
+              await supabase
+                .from("rollbacks")
+                .update({
+                  result: "failed",
+                  failure_reason: statusData.error || "Rollback failed",
+                  executed_at: new Date().toISOString(),
+                })
+                .eq("id", rollbackData.id)
+
+              await supabase
+                .from("events")
+                .update({ rollback_status: "failed" })
+                .eq("id", event.id)
+
+              setStep("failed")
+              setErrorMessage(statusData.error || "Failed to reverse the action")
+            }
+          }
+        } catch (error) {
+          console.error("[v0] Status poll error:", error)
         }
-      }, 3000)
+      }, 2000)
+
+      // Cleanup interval on unmount
+      return () => clearInterval(statusInterval)
 
     } catch (error) {
       setStep("failed")
