@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/client"
 import { EventCard, EventCardSkeleton } from "@/components/event-card"
 import { FilterBar } from "@/components/filter-bar"
 import type { Event, TimelineFilters, Agent } from "@/lib/types"
-import { Layers, RefreshCw } from "lucide-react"
+import { RefreshCw } from "lucide-react"
+import { TrailbackLogoMark } from "@/components/trailback-logo"
 
 export default function TimelinePage() {
   const [events, setEvents] = useState<Event[]>([])
@@ -154,8 +155,8 @@ export default function TimelinePage() {
               animate={{ opacity: 1, y: 0 }}
               className="flex flex-col items-center justify-center py-20 text-center"
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
-                <Layers className="h-8 w-8 text-muted-foreground" />
+              <div className="mb-4">
+                <TrailbackLogoMark size={64} />
               </div>
               <h3 className="text-lg font-medium text-foreground mb-2">
                 No events recorded yet

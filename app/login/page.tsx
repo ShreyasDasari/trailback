@@ -13,16 +13,24 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
-    const redirectUrl = process.env.NEXT_PUBLIC_SITE_URL 
-      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-      : `${window.location.origin}/auth/callback`
+    // Use window.location.origin to ensure we always redirect to the current domain
+    const redirectUrl = `${window.location.origin}/auth/callback`
     
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: redirectUrl,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     })
+    
+    if (error) {
+      console.error("[v0] OAuth error:", error)
+      setLoading(false)
+    }
   }
 
   return (
