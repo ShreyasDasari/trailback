@@ -49,7 +49,6 @@ async def health():
 async def ingest_event(payload: EventPayload):
 
     # ── Step 1: Idempotency check ─────────────────────────────
-    # If this event was already ingested, return the existing one
     if payload.idempotency_key:
         existing = supabase.table("events") \
             .select("id, risk_level, rollback_status") \
@@ -157,6 +156,7 @@ async def get_timeline(
         "has_more": len(result.data or []) == limit
     }
 
+
 # ─────────────────────────────────────────────────────────────
 # Request model for rollback
 # ─────────────────────────────────────────────────────────────
@@ -191,7 +191,6 @@ async def get_event(event_id: str):
 @app.get("/api/v1/events/{event_id}/diff")
 async def get_diff(event_id: str):
 
-    # Fetch the event
     event_result = supabase.table("events") \
         .select("*") \
         .eq("id", event_id) \
@@ -202,7 +201,6 @@ async def get_diff(event_id: str):
 
     event = event_result.data[0]
 
-    # Fetch both snapshots
     snapshots_result = supabase.table("snapshots") \
         .select("*") \
         .eq("event_id", event_id) \
@@ -214,15 +212,15 @@ async def get_diff(event_id: str):
     after  = next((s for s in snapshots if s["snapshot_type"] == "after"),  None)
 
     return {
-        "event_id":          event_id,
-        "app":               event["app"],
-        "action_type":       event["action_type"],
-        "agent_id":          event["agent_id"],
-        "risk_level":        event["risk_level"],
-        "risk_score":        event["risk_score"],
-        "risk_reasons":      event["risk_reasons"],
+        "event_id":           event_id,
+        "app":                event["app"],
+        "action_type":        event["action_type"],
+        "agent_id":           event["agent_id"],
+        "risk_level":         event["risk_level"],
+        "risk_score":         event["risk_score"],
+        "risk_reasons":       event["risk_reasons"],
         "rollback_available": event["rollback_status"] == "available",
-        "rollback_status":   event["rollback_status"],
+        "rollback_status":    event["rollback_status"],
         "before": {
             "content":      before["content"] if before else None,
             "content_hash": before["content_hash"] if before else None,
@@ -235,6 +233,35 @@ async def get_diff(event_id: str):
         } if after else None,
         "created_at": event["created_at"],
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# Helper — Recompute agent trust score after rollback
+# ─────────────────────────────────────────────────────────────
+
+async def update_agent_trust(agent_id: str):
+    try:
+        result = supabase.table("agents") \
+            .select("total_actions, rolled_back") \
+            .eq("id", agent_id) \
+            .execute()
+
+        if not result.data:
+            return
+
+        agent = result.data[0]
+        total = agent.get("total_actions", 0) + 1
+        rolled_back = agent.get("rolled_back", 0) + 1
+        trust_score = round(1 - (rolled_back / total), 4) if total > 0 else 1.0
+
+        supabase.table("agents").update({
+            "total_actions": total,
+            "rolled_back":   rolled_back,
+            "trust_score":   trust_score
+        }).eq("id", agent_id).execute()
+
+    except Exception as e:
+        print(f"Warning: could not update agent trust score: {e}")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -267,8 +294,8 @@ async def initiate_rollback(event_id: str, payload: RollbackRequest):
         raise HTTPException(
             status_code=422,
             detail={
-                "code": "ROLLBACK_UNAVAILABLE",
-                "message": f"This event cannot be rolled back. Current status: {event['rollback_status']}",
+                "code":            "ROLLBACK_UNAVAILABLE",
+                "message":         f"This event cannot be rolled back. Current status: {event['rollback_status']}",
                 "rollback_status": event["rollback_status"]
             }
         )
@@ -293,12 +320,11 @@ async def initiate_rollback(event_id: str, payload: RollbackRequest):
             if not message_id:
                 raise ValueError("No message_id found in event metadata")
 
-            # Get OAuth token from connectors table
-            # Get connector — for now fetch any gmail connector
-            # since user_id is null in test events
+            # ── Fixed: filter by user_id ──────────────────────
             connector = supabase.table("connectors") \
                 .select("oauth_token") \
                 .eq("app", "gmail") \
+                .eq("user_id", event.get("user_id")) \
                 .execute()
 
             if not connector.data or not connector.data[0].get("oauth_token"):
@@ -306,7 +332,6 @@ async def initiate_rollback(event_id: str, payload: RollbackRequest):
 
             oauth_token = connector.data[0]["oauth_token"]
 
-            # Import and call the Gmail connector
             from connectors.gmail import trash_email
             result = await trash_email(message_id, oauth_token)
 
@@ -373,6 +398,10 @@ async def initiate_rollback(event_id: str, payload: RollbackRequest):
             "status":          "rolled_back",
         }).eq("id", event_id).execute()
 
+        # ── Step 6b: Update agent trust score ─────────────────
+        if event.get("agent_id"):
+            await update_agent_trust(event["agent_id"])
+
         return {
             "rollback_id": rollback_id,
             "event_id":    event_id,
@@ -383,7 +412,6 @@ async def initiate_rollback(event_id: str, payload: RollbackRequest):
     except Exception as exc:
         failure_reason = str(exc)
 
-        # ── Step 6b: Failure — log the reason ─────────────────
         supabase.table("rollbacks").update({
             "result":         "failed",
             "failure_reason": failure_reason,
@@ -396,8 +424,8 @@ async def initiate_rollback(event_id: str, payload: RollbackRequest):
         raise HTTPException(
             status_code=422,
             detail={
-                "code":           "ROLLBACK_FAILED",
-                "message":        failure_reason,
-                "rollback_id":    rollback_id,
+                "code":        "ROLLBACK_FAILED",
+                "message":     failure_reason,
+                "rollback_id": rollback_id,
             }
         )
