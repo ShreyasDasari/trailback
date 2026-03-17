@@ -1,6 +1,5 @@
 export const TrailbackLogoMark = ({ size = 32 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg">
-    <rect width="680" height="680" rx="100" fill="#0e0e10" />
     <g transform="translate(340, 340)">
       <circle cx="0" cy="0" r="130" fill="none" stroke="#6ee7b7" strokeWidth="2" opacity="0.15" />
       <line x1="-90" y1="0" x2="60" y2="0" stroke="#2a2a30" strokeWidth="3" strokeLinecap="round" />
