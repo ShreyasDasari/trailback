@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { motion } from "framer-motion"
-import { Shield, RotateCcw, Eye, Loader2 } from "lucide-react"
+import { Shield, RotateCcw, Eye, Loader2, ArrowLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { TrailbackLogoMark } from "@/components/trailback-logo"
 
@@ -29,10 +30,13 @@ export default function LoginPage() {
       {/* Left side - Branding */}
       <div className="hidden lg:flex lg:flex-1 flex-col justify-between p-12 bg-card border-r border-border">
         <div>
-          <div className="flex items-center gap-3 mb-12">
+          <Link href="/" className="flex items-center gap-3 mb-12 w-fit">
             <TrailbackLogoMark size={48} />
-            <span className="text-xl font-semibold text-foreground">Trailback</span>
-          </div>
+            <span className="font-mono text-xl tracking-tight">
+              <span className="text-foreground">trail</span>
+              <span className="text-primary">back</span>
+            </span>
+          </Link>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -82,10 +86,13 @@ export default function LoginPage() {
           className="w-full max-w-sm"
         >
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+          <Link href="/" className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <TrailbackLogoMark size={40} />
-            <span className="text-xl font-semibold text-foreground">Trailback</span>
-          </div>
+            <span className="font-mono text-xl tracking-tight">
+              <span className="text-foreground">trail</span>
+              <span className="text-primary">back</span>
+            </span>
+          </Link>
 
           <div className="text-center mb-8">
             <h2 className="text-2xl font-semibold text-foreground mb-2">
@@ -143,6 +150,15 @@ export default function LoginPage() {
               Demo mode: Sign in with any Google account to explore the dashboard.
             </p>
           </div>
+
+          {/* Back to landing */}
+          <Link 
+            href="/" 
+            className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to home
+          </Link>
         </motion.div>
       </div>
     </div>

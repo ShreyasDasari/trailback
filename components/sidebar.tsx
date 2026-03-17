@@ -28,6 +28,7 @@ export function Sidebar() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
+    router.refresh()
     router.push("/login")
   }
 
@@ -35,10 +36,13 @@ export function Sidebar() {
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col border-r border-border bg-card">
-        <div className="flex items-center gap-2 px-4 py-5 border-b border-border">
-          <TrailbackLogoMark size={32} />
-          <span className="font-semibold text-foreground">Trailback</span>
-        </div>
+        <Link href="/" className="flex items-center gap-3 px-4 py-5 border-b border-border">
+          <TrailbackLogoMark size={40} />
+          <span className="font-mono text-lg tracking-tight">
+            <span className="text-foreground">trail</span>
+            <span className="text-primary">back</span>
+          </span>
+        </Link>
 
         <nav className="flex-1 px-2 py-4 space-y-1">
           {navItems.map((item) => {
