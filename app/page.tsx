@@ -521,6 +521,154 @@ function AboutSection() {
   )
 }
 
+// Animated Logo Section
+function LogoAnimationSection() {
+  return (
+    <section className="py-24 border-t border-[#2a2a30] overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          className="flex flex-col items-center justify-center"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+        >
+          {/* Animated Logo Mark */}
+          <motion.div
+            className="relative"
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
+            <svg width="200" height="200" viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg">
+              {/* Outer pulse ring */}
+              <motion.circle
+                cx="340"
+                cy="340"
+                r="280"
+                fill="none"
+                stroke="#6ee7b7"
+                strokeWidth="1"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: [0, 0.3, 0], scale: [0.8, 1.2, 1.4] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeOut" }}
+              />
+              <motion.circle
+                cx="340"
+                cy="340"
+                r="240"
+                fill="none"
+                stroke="#6ee7b7"
+                strokeWidth="1"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: [0, 0.2, 0], scale: [0.8, 1.1, 1.3] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+              />
+              
+              <g transform="translate(340, 340)">
+                {/* Static outer circle */}
+                <circle cx="0" cy="0" r="130" fill="none" stroke="#6ee7b7" strokeWidth="2" opacity="0.15" />
+                
+                {/* Connecting line */}
+                <motion.line 
+                  x1="-90" 
+                  y1="0" 
+                  x2="60" 
+                  y2="0" 
+                  stroke="#2a2a30" 
+                  strokeWidth="3" 
+                  strokeLinecap="round"
+                  initial={{ pathLength: 0 }}
+                  whileInView={{ pathLength: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 1, delay: 0.3 }}
+                />
+                
+                {/* Animated dots - staggered appearance */}
+                <motion.circle 
+                  cx="-90" 
+                  cy="0" 
+                  r="11" 
+                  fill="#1D9E75" 
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 0.18, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: 0.5 }}
+                />
+                <motion.circle 
+                  cx="-36" 
+                  cy="0" 
+                  r="11" 
+                  fill="#1D9E75"
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 0.42, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: 0.7 }}
+                />
+                <motion.circle 
+                  cx="18" 
+                  cy="0" 
+                  r="11" 
+                  fill="#1D9E75"
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 0.7, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: 0.9 }}
+                />
+                
+                {/* Main bright dot with pulse */}
+                <motion.circle 
+                  cx="70" 
+                  cy="0" 
+                  r="11" 
+                  fill="#6ee7b7"
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: 1.1 }}
+                />
+                <motion.circle 
+                  cx="70" 
+                  cy="0" 
+                  r="24" 
+                  fill="none" 
+                  stroke="#6ee7b7" 
+                  strokeWidth="2.5"
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: [0.4, 0.1, 0.4], scale: [1, 1.3, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </g>
+            </svg>
+          </motion.div>
+          
+          {/* Animated wordmark */}
+          <motion.div
+            className="mt-8 font-mono text-4xl tracking-tight"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 1.3, duration: 0.5 }}
+          >
+            <span className="text-[#f0f0f2]">trail</span>
+            <span className="text-[#6ee7b7]">back</span>
+          </motion.div>
+          
+          <motion.p
+            className="mt-4 text-[#7a7a85] text-center max-w-md"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 1.5, duration: 0.5 }}
+          >
+            Every action recorded. Every step reversible.
+          </motion.p>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
 // CTA Section
 function CTASection() {
   return (
@@ -600,6 +748,7 @@ export default function LandingPage() {
       <HowItWorksSection />
       <PricingSection />
       <AboutSection />
+      <LogoAnimationSection />
       <CTASection />
       <Footer />
     </main>
