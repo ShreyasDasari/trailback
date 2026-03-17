@@ -1,7 +1,7 @@
 <table border="0" cellpadding="0" cellspacing="0">
 <tr>
-<td><img src="trailback-logo.svg" width="48" height="48" alt="Trailback logo"/></td>
-<td>&nbsp;&nbsp;</td>
+<td><img src="trailback-logo.svg" width="72" height="72" alt="Trailback logo"/></td>
+<td>&nbsp;&nbsp;&nbsp;</td>
 <td><h1>Trailback</h1></td>
 </tr>
 </table>
