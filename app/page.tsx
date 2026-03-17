@@ -40,8 +40,8 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <TrailbackLogoMark size={32} />
+          <Link href="/" className="flex items-center gap-2.5">
+            <TrailbackLogoMark size={48} />
             <span className="font-mono text-xl tracking-tight hidden sm:block">
               <span className="text-[#f0f0f2]">trail</span>
               <span className="text-[#6ee7b7]">back</span>
