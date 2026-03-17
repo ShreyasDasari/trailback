@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next"
+import type { Metadata } from "next"
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google"
 import "./globals.css"
 
@@ -20,11 +20,7 @@ export const metadata: Metadata = {
   keywords: ["AI", "agent", "oversight", "rollback", "audit", "security"],
 }
 
-export const viewport: Viewport = {
-  themeColor: "#0e0e10",
-  width: "device-width",
-  initialScale: 1,
-}
+
 
 export default function RootLayout({
   children,
