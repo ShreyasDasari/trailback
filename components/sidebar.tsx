@@ -7,13 +7,13 @@ import {
   Clock, 
   Settings, 
   LogOut,
-  Layers,
   Plug,
   Bot,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { TrailbackLogoMark } from "@/components/trailback-logo"
 
 const navItems = [
   { href: "/timeline", label: "Timeline", icon: Clock },
@@ -36,9 +36,7 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col border-r border-border bg-card">
         <div className="flex items-center gap-2 px-4 py-5 border-b border-border">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <Layers className="h-4 w-4 text-primary" />
-          </div>
+          <TrailbackLogoMark size={32} />
           <span className="font-semibold text-foreground">Trailback</span>
         </div>
 

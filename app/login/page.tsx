@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Layers, Shield, RotateCcw, Eye, Loader2 } from "lucide-react"
+import { Shield, RotateCcw, Eye, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { TrailbackLogoMark } from "@/components/trailback-logo"
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
@@ -29,9 +30,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:flex-1 flex-col justify-between p-12 bg-card border-r border-border">
         <div>
           <div className="flex items-center gap-3 mb-12">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Layers className="h-5 w-5 text-primary" />
-            </div>
+            <TrailbackLogoMark size={48} />
             <span className="text-xl font-semibold text-foreground">Trailback</span>
           </div>
 
@@ -84,9 +83,7 @@ export default function LoginPage() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Layers className="h-5 w-5 text-primary" />
-            </div>
+            <TrailbackLogoMark size={40} />
             <span className="text-xl font-semibold text-foreground">Trailback</span>
           </div>
 

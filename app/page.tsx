@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
 import { Menu, X, Github, Clock, Shield, RotateCcw, FileText, Users, Download, Zap, Link2, Eye } from "lucide-react"
+import { TrailbackLogoMark } from "@/components/trailback-logo"
 
 // Navbar Component
 function Navbar() {
@@ -39,9 +40,12 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="font-mono text-xl tracking-tight">
-            <span className="text-[#f0f0f2]">trail</span>
-            <span className="text-[#6ee7b7]">back</span>
+          <Link href="/" className="flex items-center gap-2">
+            <TrailbackLogoMark size={32} />
+            <span className="font-mono text-xl tracking-tight hidden sm:block">
+              <span className="text-[#f0f0f2]">trail</span>
+              <span className="text-[#6ee7b7]">back</span>
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
