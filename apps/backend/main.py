@@ -621,3 +621,49 @@ async def get_audit(
             "Content-Disposition": f"attachment; filename=trailback-audit-{date_str}.csv"
         }
     )
+
+# ─────────────────────────────────────────────────────────────
+# POST /connectors/upsert — Store OAuth token after user connects an app
+# ─────────────────────────────────────────────────────────────
+
+class ConnectorUpsertRequest(BaseModel):
+    app: str
+    oauth_token: str
+    refresh_token: Optional[str] = None
+    scopes: Optional[list] = None
+
+@app.post("/api/v1/connectors/upsert", status_code=200)
+async def upsert_connector(
+    payload: ConnectorUpsertRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    existing = supabase.table("connectors") \
+        .select("id") \
+        .eq("user_id", current_user["user_id"]) \
+        .eq("app", payload.app) \
+        .execute()
+
+    if existing.data:
+        supabase.table("connectors") \
+            .update({
+                "oauth_token":   payload.oauth_token,
+                "refresh_token": payload.refresh_token,
+                "scopes":        payload.scopes,
+                "is_active":     True,
+                "last_used_at":  datetime.utcnow().isoformat(),
+            }) \
+            .eq("id", existing.data[0]["id"]) \
+            .execute()
+    else:
+        supabase.table("connectors") \
+            .insert({
+                "user_id":       current_user["user_id"],
+                "app":           payload.app,
+                "oauth_token":   payload.oauth_token,
+                "refresh_token": payload.refresh_token,
+                "scopes":        payload.scopes,
+                "is_active":     True,
+            }) \
+            .execute()
+
+    return {"status": "connected", "app": payload.app}
