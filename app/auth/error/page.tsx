@@ -1,10 +1,21 @@
 "use client"
 
-import Link from "next/link"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { AlertCircle, ArrowLeft } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function AuthErrorPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const handleBackToLogin = async () => {
+    // Sign out to clear any partial session state
+    await supabase.auth.signOut()
+    router.push("/login")
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <motion.div
@@ -24,13 +35,13 @@ export default function AuthErrorPage() {
           link or a configuration issue.
         </p>
 
-        <Link
-          href="/login"
+        <button
+          onClick={handleBackToLogin}
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Login
-        </Link>
+        </button>
       </motion.div>
     </div>
   )

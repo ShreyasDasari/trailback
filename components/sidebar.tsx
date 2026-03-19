@@ -27,9 +27,9 @@ export function Sidebar() {
   const supabase = createClient()
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.refresh()
-    router.push("/login")
+    await supabase.auth.signOut({ scope: 'global' })
+    // Force a hard navigation to clear all client state
+    window.location.href = "/login"
   }
 
   return (

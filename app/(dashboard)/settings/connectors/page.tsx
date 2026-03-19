@@ -74,57 +74,41 @@ export default function ConnectorsPage() {
   }, [supabase])
 
   const getConnectorStatus = (app: AppType): Connector | undefined => {
-    return connectors.find((c) => c.app === app && c.is_connected)
+    // Only show as connected if is_active is true AND has a valid oauth_token
+    return connectors.find((c) => c.app === app && c.is_active && c.oauth_token)
   }
 
   const handleConnect = async (app: AppType) => {
-    setConnectingApp(app)
+    // For Gmail and Google Docs, the connection happens via the main OAuth login flow
+    // Slack would require a separate OAuth flow (not implemented yet)
+    if (app === 'slack') {
+      // TODO: Implement Slack OAuth flow
+      alert('Slack integration requires separate OAuth setup. Please contact support.')
+      return
+    }
     
-    // In production, this would initiate OAuth flow
-    // For demo, we'll simulate a connection
-    setTimeout(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const existing = connectors.find((c) => c.app === app)
-      
-      if (existing) {
-        await supabase
-          .from("connectors")
-          .update({ 
-            is_connected: true, 
-            connected_at: new Date().toISOString(),
-            is_active: true,
-          })
-          .eq("id", existing.id)
-      } else {
-        await supabase
-          .from("connectors")
-          .insert({
-            user_id: user.id,
-            app,
-            is_connected: true,
-            is_active: true,
-            connected_at: new Date().toISOString(),
-          })
-      }
-
-      // Refresh connectors
-      const { data } = await supabase.from("connectors").select("*")
-      setConnectors(data || [])
-      setConnectingApp(null)
-    }, 1500)
+    // Gmail and Google Docs are connected via the main Google OAuth flow
+    // If not connected, redirect to login to re-authenticate with proper scopes
+    setConnectingApp(app)
+    window.location.href = '/login'
   }
 
   const handleDisconnect = async (connector: Connector) => {
     await supabase
       .from("connectors")
-      .update({ is_connected: false, is_active: false })
+      .update({ 
+        is_connected: false, 
+        is_active: false,
+        oauth_token: null,
+        refresh_token: null,
+      })
       .eq("id", connector.id)
 
     setConnectors((prev) =>
       prev.map((c) =>
-        c.id === connector.id ? { ...c, is_connected: false, is_active: false } : c
+        c.id === connector.id 
+          ? { ...c, is_connected: false, is_active: false, oauth_token: null, refresh_token: null } 
+          : c
       )
     )
   }

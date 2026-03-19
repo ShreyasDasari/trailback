@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Shield, RotateCcw, Eye, Loader2, ArrowLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -9,12 +10,34 @@ import { TrailbackLogoMark } from "@/components/trailback-logo"
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
+  const router = useRouter()
   const supabase = createClient()
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        router.replace('/timeline')
+      } else {
+        setCheckingAuth(false)
+      }
+    }
+    checkUser()
+  }, [supabase, router])
+
+  // Show nothing while checking auth to prevent flash
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
-    // Use window.location.origin to ensure we always redirect to the current domain
-    const redirectUrl = `${window.location.origin}/auth/callback`
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
