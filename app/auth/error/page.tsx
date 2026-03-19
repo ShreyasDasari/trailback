@@ -12,8 +12,9 @@ export default function AuthErrorPage() {
 
   const handleBackToLogin = async () => {
     // Sign out to clear any partial session state
-    await supabase.auth.signOut()
-    router.push("/login")
+    await supabase.auth.signOut({ scope: 'global' })
+    // Use window.location for hard redirect to ensure clean state
+    window.location.href = "/login"
   }
 
   return (
