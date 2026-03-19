@@ -20,9 +20,10 @@ export default function LoginPage() {
       provider: "google",
       options: {
         redirectTo: redirectUrl,
+        scopes: "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/drive.file",
         queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+          access_type: "offline",
+          prompt: "consent",
         },
       },
     })

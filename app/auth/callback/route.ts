@@ -8,16 +8,18 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
-    if (!error) {
-      // Store OAuth tokens in backend for rollback to work
-      const { data: { session } } = await supabase.auth.getSession()
+    if (!error && data.session) {
+      // Get tokens directly from exchangeCodeForSession response
+      const provider_token = data.session.provider_token
+      const provider_refresh_token = data.session.provider_refresh_token
+      const access_token = data.session.access_token
 
-      if (session?.provider_token) {
+      if (provider_token) {
         const headers = {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          "Authorization": `Bearer ${access_token}`,
         }
 
         await Promise.allSettled([
@@ -26,8 +28,8 @@ export async function GET(request: Request) {
             headers,
             body: JSON.stringify({
               app: "gmail",
-              oauth_token: session.provider_token,
-              refresh_token: session.provider_refresh_token ?? null,
+              oauth_token: provider_token,
+              refresh_token: provider_refresh_token ?? null,
               scopes: ["https://www.googleapis.com/auth/gmail.modify"],
             }),
           }),
@@ -36,8 +38,8 @@ export async function GET(request: Request) {
             headers,
             body: JSON.stringify({
               app: "gdocs",
-              oauth_token: session.provider_token,
-              refresh_token: session.provider_refresh_token ?? null,
+              oauth_token: provider_token,
+              refresh_token: provider_refresh_token ?? null,
               scopes: ["https://www.googleapis.com/auth/drive.file"],
             }),
           }),
