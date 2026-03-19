@@ -19,8 +19,15 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: redirectUrl,
-        scopes: "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/drive.file",
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: [
+          "openid",
+          "email",
+          "profile",
+          "https://www.googleapis.com/auth/gmail.modify",
+          "https://www.googleapis.com/auth/drive.file",
+          "https://www.googleapis.com/auth/documents",
+        ].join(" "),
         queryParams: {
           access_type: "offline",
           prompt: "consent",
