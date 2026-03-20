@@ -12,7 +12,7 @@ interface FilterBarProps {
 const appOptions: { value: AppType | "all"; label: string }[] = [
   { value: "all", label: "All Apps" },
   { value: "gmail", label: "Gmail" },
-  { value: "google_docs", label: "Docs" },
+  { value: "gdocs", label: "Docs" },
   { value: "slack", label: "Slack" },
 ]
 
