@@ -1,18 +1,8 @@
 // Database types for Trailback
 
-export type AppType = 'gmail' | 'google_docs' | 'slack' | 'notion' | 'github'
+export type AppType = 'gmail' | 'gdocs' | 'slack' | 'notion' | 'github'
 
-export type ActionType = 
-  | 'send_email' 
-  | 'edit_document' 
-  | 'send_message' 
-  | 'create_page' 
-  | 'create_issue' 
-  | 'comment' 
-  | 'delete' 
-  | 'archive' 
-  | 'move' 
-  | 'custom'
+export type ActionType = string
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
 
@@ -113,7 +103,7 @@ export interface TimelineFilters {
 // App metadata for UI
 export const APP_METADATA: Record<AppType, { name: string; color: string; icon: string }> = {
   gmail: { name: 'Gmail', color: '#ef4444', icon: 'mail' },
-  google_docs: { name: 'Google Docs', color: '#3b82f6', icon: 'file-text' },
+  gdocs: { name: 'Google Docs', color: '#3b82f6', icon: 'file-text' },
   slack: { name: 'Slack', color: '#a855f7', icon: 'hash' },
   notion: { name: 'Notion', color: '#000000', icon: 'book-open' },
   github: { name: 'GitHub', color: '#6b7280', icon: 'github' },
@@ -126,15 +116,15 @@ export const RISK_METADATA: Record<RiskLevel, { label: string; color: string; bg
   critical: { label: 'Critical', color: '#dc2626', bgColor: 'bg-red-500/10' },
 }
 
-export const ACTION_LABELS: Record<ActionType, string> = {
-  send_email: 'Sent email',
-  edit_document: 'Edited document',
-  send_message: 'Sent message',
-  create_page: 'Created page',
-  create_issue: 'Created issue',
-  comment: 'Added comment',
-  delete: 'Deleted',
-  archive: 'Archived',
-  move: 'Moved',
-  custom: 'Custom action',
+export const ACTION_LABELS: Record<string, string> = {
+  "email.send": "Sent email",
+  "email.send_bulk": "Sent bulk email",
+  "email.delete": "Deleted email",
+  "doc.edit": "Edited document",
+  "doc.delete": "Deleted document",
+  "doc.share": "Shared document",
+  "document.edit": "Edited document",
+  "message.post": "Sent message",
+  "message.post_public": "Sent public message",
+  "message.delete": "Deleted message",
 }

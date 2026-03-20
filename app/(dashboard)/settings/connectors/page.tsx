@@ -35,7 +35,7 @@ const connectorConfigs: ConnectorConfig[] = [
     bgColor: "bg-red-500/10",
   },
   {
-    app: "google_docs",
+    app: "gdocs",
     name: "Google Docs",
     description: "Track document edits made by AI agents",
     icon: FileText,
@@ -74,8 +74,8 @@ export default function ConnectorsPage() {
   }, [supabase])
 
   const getConnectorStatus = (app: AppType): Connector | undefined => {
-    // Only show as connected if is_active is true AND has a valid oauth_token
-    return connectors.find((c) => c.app === app && c.is_active && c.oauth_token)
+    // Only show as connected if is_active is true (tokens are stored on backend only due to RLS)
+    return connectors.find((c) => c.app === app && c.is_active)
   }
 
   const handleConnect = async (app: AppType) => {

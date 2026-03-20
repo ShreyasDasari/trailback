@@ -18,7 +18,7 @@ const appConfig: Record<AppType, { icon: typeof Mail; color: string; bgColor: st
     bgColor: "bg-red-500/10",
     label: "Gmail",
   },
-  google_docs: {
+  gdocs: {
     icon: FileText,
     color: "text-blue-400",
     bgColor: "bg-blue-500/10",
