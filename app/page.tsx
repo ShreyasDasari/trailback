@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
-import { Menu, X, Github, Clock, Shield, RotateCcw, FileText, Users, Download, Zap, Link2, Eye } from "lucide-react"
+import { Menu, X, Github, Clock, Shield, RotateCcw, FileText, Users, Download, Zap, Link2, Eye, Loader2 } from "lucide-react"
 import { TrailbackLogoMark } from "@/components/trailback-logo"
+import { createClient } from "@/lib/supabase/client"
 
 // Navbar Component
 function Navbar() {
@@ -739,6 +741,37 @@ function Footer() {
 
 // Main Landing Page
 export default function LandingPage() {
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        // User is authenticated, redirect to dashboard
+        router.replace('/timeline')
+      } else {
+        // User is not authenticated, show landing page
+        setLoading(false)
+      }
+    }
+    checkAuth()
+  }, [supabase, router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+        >
+          <Loader2 className="w-8 h-8 text-primary" />
+        </motion.div>
+      </div>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-[#0e0e10]">
       <Navbar />
