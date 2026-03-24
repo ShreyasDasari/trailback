@@ -181,14 +181,15 @@ export default function RollbackPage({ params }: PageProps) {
         throw new Error("API URL not configured")
       }
 
-      const rollbackResponse = await fetch(`${apiUrl}/api/v1/rollback/${rollbackData.id}`, {
+      const rollbackResponse = await fetch(`${apiUrl}/api/v1/rollback/${event.id}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
         },
         body: JSON.stringify({
-          confirmation: true
+          confirmation: true,
+          reason: "User initiated rollback from dashboard"
         }),
       })
 

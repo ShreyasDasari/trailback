@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Shield, RotateCcw, Eye, Loader2, ArrowLeft } from "lucide-react"
+import { Shield, RotateCcw, Eye, Loader2, ArrowLeft, Sparkles } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { TrailbackLogoMark } from "@/components/trailback-logo"
 
@@ -14,7 +14,6 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Check if user is already logged in
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -27,11 +26,17 @@ export default function LoginPage() {
     checkUser()
   }, [supabase, router])
 
-  // Show nothing while checking auth to prevent flash
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <TrailbackLogoMark size={48} />
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </motion.div>
       </div>
     )
   }
@@ -64,13 +69,28 @@ export default function LoginPage() {
     }
   }
 
+  const features = [
+    { icon: Eye, label: "Full Visibility", desc: "See every action in real-time" },
+    { icon: Shield, label: "Risk Scoring", desc: "Automatic threat detection" },
+    { icon: RotateCcw, label: "One-Click Undo", desc: "Reverse any action instantly" },
+  ]
+
   return (
     <div className="min-h-screen flex">
       {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:flex-1 flex-col justify-between p-12 bg-card border-r border-border">
-        <div>
-          <Link href="/" className="flex items-center gap-3 mb-12 w-fit">
-            <TrailbackLogoMark size={48} />
+      <div className="hidden lg:flex lg:flex-1 flex-col justify-between p-12 bg-card/50 border-r border-border relative overflow-hidden">
+        {/* Background gradient effects */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        
+        <div className="relative z-10">
+          <Link href="/" className="flex items-center gap-3 mb-16 w-fit group">
+            <motion.div
+              whileHover={{ rotate: [0, -10, 10, 0] }}
+              transition={{ duration: 0.4 }}
+            >
+              <TrailbackLogoMark size={48} />
+            </motion.div>
             <span className="font-mono text-xl tracking-tight">
               <span className="text-foreground">trail</span>
               <span className="text-primary">back</span>
@@ -78,14 +98,14 @@ export default function LoginPage() {
           </Link>
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+            transition={{ delay: 0.1, duration: 0.6 }}
           >
-            <h1 className="text-4xl font-bold text-foreground leading-tight mb-4">
+            <h1 className="text-4xl lg:text-5xl font-bold text-foreground leading-tight mb-6">
               Every agent action,
               <br />
-              <span className="text-primary">recorded and reversible.</span>
+              <span className="text-gradient">recorded and reversible.</span>
             </h1>
             <p className="text-lg text-muted-foreground max-w-md">
               Full visibility and recoverability over every action your AI agents 
@@ -94,23 +114,24 @@ export default function LoginPage() {
           </motion.div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
-          {[
-            { icon: Eye, label: "Full Visibility", desc: "See every action in real-time" },
-            { icon: Shield, label: "Risk Scoring", desc: "Automatic threat detection" },
-            { icon: RotateCcw, label: "One-Click Undo", desc: "Reverse any action instantly" },
-          ].map((feature, index) => (
+        <div className="grid grid-cols-3 gap-6 relative z-10">
+          {features.map((feature, index) => (
             <motion.div
               key={feature.label}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + index * 0.1 }}
-              className="space-y-2"
+              transition={{ delay: 0.3 + index * 0.1, duration: 0.5 }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className="space-y-3 p-4 rounded-xl bg-card/50 border border-border hover:border-primary/20 transition-all duration-300"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <feature.icon className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <h3 className="font-medium text-foreground">{feature.label}</h3>
+              <motion.div 
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20"
+                whileHover={{ rotate: [0, -5, 5, 0] }}
+                transition={{ duration: 0.3 }}
+              >
+                <feature.icon className="h-5 w-5 text-primary" />
+              </motion.div>
+              <h3 className="font-semibold text-foreground">{feature.label}</h3>
               <p className="text-sm text-muted-foreground">{feature.desc}</p>
             </motion.div>
           ))}
@@ -118,14 +139,18 @@ export default function LoginPage() {
       </div>
 
       {/* Right side - Login form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-8 relative">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+        
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-sm"
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-sm relative z-10"
         >
           {/* Mobile logo */}
-          <Link href="/" className="lg:hidden flex items-center justify-center gap-3 mb-8">
+          <Link href="/" className="lg:hidden flex items-center justify-center gap-3 mb-10">
             <TrailbackLogoMark size={40} />
             <span className="font-mono text-xl tracking-tight">
               <span className="text-foreground">trail</span>
@@ -134,18 +159,29 @@ export default function LoginPage() {
           </Link>
 
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-semibold text-foreground mb-2">
-              Welcome back
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Sign in to your account to continue
-            </p>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                Welcome back
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Sign in to your account to continue
+              </p>
+            </motion.div>
           </div>
 
-          <button
+          <motion.button
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            whileHover={{ scale: 1.02, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 text-sm font-medium text-foreground bg-card border border-border rounded-xl hover:bg-secondary hover:border-primary/20 transition-all duration-300 disabled:opacity-50 shadow-lg shadow-black/10"
           >
             {loading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -170,9 +206,14 @@ export default function LoginPage() {
               </svg>
             )}
             {loading ? "Signing in..." : "Continue with Google"}
-          </button>
+          </motion.button>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="mt-6 text-center text-xs text-muted-foreground"
+          >
             By continuing, you agree to our{" "}
             <a href="#" className="text-primary hover:underline">
               Terms of Service
@@ -181,23 +222,37 @@ export default function LoginPage() {
             <a href="#" className="text-primary hover:underline">
               Privacy Policy
             </a>
-          </p>
+          </motion.p>
 
           {/* Demo hint */}
-          <div className="mt-8 p-4 rounded-lg bg-muted/50 border border-border">
-            <p className="text-xs text-muted-foreground text-center">
-              Demo mode: Sign in with any Google account to explore the dashboard.
-            </p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="mt-8 p-4 rounded-xl bg-primary/5 border border-primary/10"
+          >
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Demo mode:</span> Sign in with any Google account to explore the dashboard.
+              </p>
+            </div>
+          </motion.div>
 
           {/* Back to landing */}
-          <Link 
-            href="/" 
-            className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back to home
-          </Link>
+            <Link 
+              href="/" 
+              className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+            >
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+              Back to home
+            </Link>
+          </motion.div>
         </motion.div>
       </div>
     </div>
