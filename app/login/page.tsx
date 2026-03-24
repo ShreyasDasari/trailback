@@ -224,7 +224,7 @@ export default function LoginPage() {
             </a>
           </motion.p>
 
-          {/* Demo hint */}
+          {/* Security note */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -234,7 +234,7 @@ export default function LoginPage() {
             <div className="flex items-start gap-3">
               <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Demo mode:</span> Sign in with any Google account to explore the dashboard.
+                <span className="font-medium text-foreground">Secure access:</span> Your data is protected with enterprise-grade security and row-level access controls.
               </p>
             </div>
           </motion.div>
