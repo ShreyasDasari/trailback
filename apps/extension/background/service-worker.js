@@ -153,9 +153,11 @@ async function getSupabaseToken() {
     return token; // Token is valid and not about to expire
   }
 
-  // Token missing or expiring — re-authenticate
-  console.log('[Trailback] Supabase token missing or expiring — re-authenticating...');
-  return signInWithSupabase();
+  // Token missing or expired — return null silently.
+  // Auth must ONLY be triggered by the user clicking "Sign in" in the popup.
+  // Never auto-trigger launchWebAuthFlow from an alarm/background path.
+  console.log('[Trailback] Supabase token missing or expired — waiting for user sign-in.');
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -230,7 +232,13 @@ export async function flushQueue() {
     token = await getSupabaseToken();
   } catch (err) {
     console.warn('[Trailback] Not signed in to Supabase — skipping flush:', err.message);
-    return; // Graceful early exit — no crash, events preserved in queue
+    return;
+  }
+
+  // getSupabaseToken returns null when the user hasn't signed in yet
+  if (!token) {
+    console.log('[Trailback] No Supabase token — skipping flush until user signs in.');
+    return; // Graceful early exit — events preserved in queue
   }
 
   const queue = await getQueue();

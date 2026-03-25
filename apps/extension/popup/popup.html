@@ -1,49 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trailback</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap');
 
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg: #0e0e10;
-            --surface: #18181c;
-            --border: #2a2a30;
-            --text-primary: #f0f0f2;
-            --text-muted: #7a7a85;
-            --green: #22c55e;
-            --green-dim: rgba(34, 197, 94, 0.12);
-            --accent: #6ee7b7;
-            --amber: #f59e0b;
-            --amber-dim: rgba(245, 158, 11, 0.12);
+            --bg:           #09090b;
+            --surface:      #18181b;
+            --elevated:     #27272a;
+            --border:       #3f3f46;
+            --text:         #fafafa;
+            --muted:        #71717a;
+            --accent:       #6ee7b7;
+            --accent-dim:   rgba(110,231,183,0.10);
+            --green:        #22c55e;
+            --green-dim:    rgba(34,197,94,0.10);
+            --red:          #ef4444;
+            --red-dim:      rgba(239,68,68,0.10);
+            --amber:        #f59e0b;
+            --gmail:        #ef4444;
+            --docs:         #3b82f6;
+            --slack:        #a855f7;
         }
 
         body {
-            width: 280px;
+            width: 320px;
             background: var(--bg);
-            color: var(--text-primary);
-            font-family: 'IBM Plex Sans', sans-serif;
-            padding: 20px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
             user-select: none;
+            overflow: hidden;
         }
 
-        /* ── Header ── */
+        /* ── Header ─────────────────────────── */
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 18px;
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid var(--border);
         }
 
         .logo {
@@ -51,358 +52,373 @@
             font-weight: 600;
             font-size: 15px;
             letter-spacing: 0.04em;
-            color: var(--text-primary);
+            color: var(--text);
         }
+        .logo em { color: var(--accent); font-style: normal; }
 
-        .logo span {
-            color: var(--accent);
-        }
-
-        /* ── Status badge: Recording (signed in) ── */
-        .status {
+        .status-pill {
             display: flex;
             align-items: center;
-            gap: 6px;
-            background: var(--green-dim);
-            border: 1px solid rgba(34, 197, 94, 0.25);
+            gap: 5px;
+            padding: 3px 10px;
             border-radius: 20px;
-            padding: 4px 10px;
-        }
-
-        .status-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--green);
-            animation: pulse 2s ease-in-out infinite;
-            flex-shrink: 0;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50%       { opacity: 0.6; transform: scale(0.85); }
-        }
-
-        .status-label {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
+        }
+        .status-pill.recording {
+            background: var(--green-dim);
+            border: 1px solid rgba(34,197,94,0.25);
             color: var(--green);
         }
-
-        /* ── Auth prompt (signed out) ── */
-        #auth-section {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            padding: 16px 0 8px;
+        .status-pill.offline {
+            background: var(--elevated);
+            border: 1px solid var(--border);
+            color: var(--muted);
         }
 
-        .auth-message {
-            font-size: 12px;
-            color: var(--text-muted);
+        .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dot.green { background: var(--green); animation: pulse 2s ease-in-out infinite; }
+        .dot.grey  { background: var(--muted); }
+
+        @keyframes pulse {
+            0%,100% { opacity:1; transform:scale(1); }
+            50%      { opacity:0.5; transform:scale(0.8); }
+        }
+
+        /* ── Sign-in section ─────────────────── */
+        #signed-out {
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .auth-icon {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            background: var(--accent-dim);
+            border: 1px solid rgba(110,231,183,0.2);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .auth-icon svg { color: var(--accent); }
+
+        .auth-copy {
             text-align: center;
             line-height: 1.5;
         }
+        .auth-copy h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+        .auth-copy p  { font-size: 12px; color: var(--muted); }
 
-        .btn-signin {
+        .btn-google {
+            width: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            width: 100%;
             padding: 10px 16px;
-            background: var(--amber-dim);
-            border: 1px solid rgba(245, 158, 11, 0.35);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 10px;
-            color: var(--amber);
-            font-family: 'IBM Plex Sans', sans-serif;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 500;
             cursor: pointer;
             transition: background 0.15s, border-color 0.15s, transform 0.1s;
-            letter-spacing: 0.01em;
         }
+        .btn-google:hover { background: var(--elevated); border-color: rgba(110,231,183,0.3); transform: translateY(-1px); }
+        .btn-google:active { transform: translateY(0); }
+        .btn-google:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .btn-signin:hover {
-            background: rgba(245, 158, 11, 0.18);
-            border-color: rgba(245, 158, 11, 0.55);
-            transform: translateY(-1px);
-        }
-
-        .btn-signin:active {
-            transform: translateY(0);
-        }
-
-        .btn-signin:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* ── User email strip ── */
-        #user-email {
-            display: none;
+        .open-login-link {
             font-size: 11px;
-            color: var(--text-muted);
+            color: var(--accent);
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .open-login-link:hover { text-decoration: underline; }
+
+        /* ── Signed-in section ───────────────── */
+        #signed-in { display: none; }
+
+        .user-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--accent-dim);
+            border: 1px solid rgba(110,231,183,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .user-info { flex: 1; min-width: 0; }
+        .user-email {
+            font-size: 11px;
             font-family: 'IBM Plex Mono', monospace;
-            text-align: right;
-            margin-top: -10px;
-            margin-bottom: 10px;
-            letter-spacing: 0.02em;
+            color: var(--muted);
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap;
+        }
+        .user-label { font-size: 12px; font-weight: 500; color: var(--text); }
+
+        .sign-out-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+            padding: 4px;
+            border-radius: 6px;
+            transition: color 0.15s, background 0.15s;
+            display: flex; align-items: center;
+        }
+        .sign-out-btn:hover { color: var(--text); background: var(--elevated); }
+
+        /* ── Connectors section ──────────────── */
+        .section {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
         }
 
-        /* ── Divider ── */
-        .divider {
-            height: 1px;
-            background: var(--border);
-            margin-bottom: 16px;
-        }
-
-        /* ── Section label ── */
         .section-label {
             font-size: 10px;
             font-weight: 600;
             letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: var(--text-muted);
-            margin-bottom: 10px;
+            color: var(--muted);
             font-family: 'IBM Plex Mono', monospace;
+            margin-bottom: 10px;
         }
 
-        /* ── App pills ── */
-        .pills {
+        .connector-list { display: flex; flex-direction: column; gap: 6px; }
+
+        .connector-row {
             display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            transition: border-color 0.15s;
+        }
+        .connector-row.connected { border-color: rgba(34,197,94,0.2); }
+        .connector-row.needs-setup { border-color: rgba(245,158,11,0.15); }
+
+        .app-dot {
+            width: 28px; height: 28px;
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            font-size: 13px;
+        }
+        .app-dot.gmail { background: rgba(239,68,68,0.12); }
+        .app-dot.docs  { background: rgba(59,130,246,0.12); }
+        .app-dot.slack { background: rgba(168,85,247,0.12); }
+
+        .connector-info { flex: 1; min-width: 0; }
+        .connector-name { font-size: 12px; font-weight: 500; color: var(--text); }
+        .connector-sub  { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+        .connector-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+            letter-spacing: 0.04em;
+            flex-shrink: 0;
+        }
+        .badge-connected { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+        .badge-recording { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(110,231,183,0.25); }
+        .badge-setup     { background: rgba(245,158,11,0.10); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); cursor: pointer; transition: background 0.15s; }
+        .badge-setup:hover { background: rgba(245,158,11,0.18); }
+
+        /* ── Footer actions ──────────────────── */
+        .footer-actions {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
             gap: 8px;
-            margin-bottom: 20px;
         }
 
-        .pill {
-            flex: 1;
+        .btn-dashboard {
+            width: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 5px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 6px;
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--text-muted);
-            transition: border-color 0.15s, color 0.15s;
-        }
-
-        .pill.connected {
-            border-color: rgba(34, 197, 94, 0.3);
-            color: var(--text-primary);
-        }
-
-        .pill .check {
-            font-size: 10px;
-            color: var(--green);
-        }
-
-        /* ── Dashboard button ── */
-        .btn-dashboard {
-            display: block;
-            width: 100%;
-            padding: 11px 16px;
-            background: var(--surface);
-            border: 1px solid var(--border);
+            gap: 6px;
+            padding: 10px 16px;
+            background: var(--accent-dim);
+            border: 1px solid rgba(110,231,183,0.25);
             border-radius: 10px;
-            color: var(--text-primary);
-            font-family: 'IBM Plex Sans', sans-serif;
+            color: var(--accent);
+            font-family: 'Inter', sans-serif;
             font-size: 13px;
-            font-weight: 500;
-            text-align: center;
+            font-weight: 600;
             text-decoration: none;
             cursor: pointer;
-            transition: background 0.15s, border-color 0.15s, transform 0.1s;
+            transition: background 0.15s, transform 0.1s;
             letter-spacing: 0.01em;
         }
+        .btn-dashboard:hover { background: rgba(110,231,183,0.16); transform: translateY(-1px); }
+        .btn-dashboard:active { transform: translateY(0); }
+        .btn-dashboard .arrow { margin-left: 2px; display: inline-block; transition: transform 0.15s; }
+        .btn-dashboard:hover .arrow { transform: translateX(3px); }
 
-        .btn-dashboard:hover {
-            background: #202026;
-            border-color: #3a3a42;
-            transform: translateY(-1px);
-        }
-
-        .btn-dashboard:active {
-            transform: translateY(0);
-        }
-
-        .btn-dashboard .arrow {
-            display: inline-block;
-            margin-left: 6px;
-            transition: transform 0.15s;
-        }
-
-        .btn-dashboard:hover .arrow {
-            transform: translateX(3px);
-        }
-
-        /* ── Footer ── */
-        .footer {
-            margin-top: 14px;
+        .version {
             text-align: center;
             font-size: 10px;
-            color: var(--text-muted);
+            color: var(--muted);
             font-family: 'IBM Plex Mono', monospace;
-            letter-spacing: 0.04em;
+            padding: 0 0 4px;
         }
+
+        /* ── Helpers ─────────────────────────── */
+        .hidden { display: none !important; }
     </style>
 </head>
 
 <body>
 
-    <!-- Header: logo + status -->
-    <div class="header">
-        <div class="logo">trail<span>back</span></div>
+<!-- ── Header ───────────────────────────────────────── -->
+<div class="header">
+    <div class="logo">trail<em>back</em></div>
+    <div id="status-recording" class="status-pill recording hidden">
+        <span class="dot green"></span> Recording
+    </div>
+    <div id="status-offline" class="status-pill offline">
+        <span class="dot grey"></span> Offline
+    </div>
+</div>
 
-        <!-- Shown when signed in -->
-        <div id="status-badge" class="status" style="display:none;">
-            <div class="status-dot"></div>
-            <span class="status-label">Recording</span>
-        </div>
+<!-- ══ SIGNED OUT ═══════════════════════════════════ -->
+<div id="signed-out">
+    <div class="auth-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 8-4 8-4s8 0 8 4"/>
+        </svg>
+    </div>
+    <div class="auth-copy">
+        <h3>Sign in to Trailback</h3>
+        <p>Record and reverse every AI agent action<br>across Gmail, Docs &amp; Slack.</p>
     </div>
 
-    <!-- User email (shown when signed in) -->
-    <div id="user-email"></div>
+    <!-- Primary: sign in via Supabase OAuth inside extension -->
+    <button id="btn-signin" class="btn-google">
+        <svg width="16" height="16" viewBox="0 0 24 24">
+            <path fill="#EA4335" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#4285F4" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        <span id="signin-label">Continue with Google</span>
+    </button>
 
-    <!-- Auth section (shown when signed out) -->
-    <div id="auth-section">
-        <p class="auth-message">Sign in to start recording AI agent actions.</p>
-        <button id="btn-signin" class="btn-signin">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+    <!-- Secondary: open web app login page -->
+    <button class="open-login-link" id="btn-open-webapp">
+        Open dashboard to sign in instead →
+    </button>
+</div>
+
+<!-- ══ SIGNED IN ════════════════════════════════════ -->
+<div id="signed-in">
+
+    <!-- User row -->
+    <div class="user-row">
+        <div class="avatar" id="user-avatar">?</div>
+        <div class="user-info">
+            <div class="user-label">Signed in</div>
+            <div class="user-email" id="user-email">—</div>
+        </div>
+        <button class="sign-out-btn" id="btn-signout" title="Sign out">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
             </svg>
-            Sign in to record
         </button>
     </div>
 
-    <div class="divider"></div>
+    <!-- Connectors -->
+    <div class="section">
+        <div class="section-label">Monitoring</div>
+        <div class="connector-list">
 
-    <!-- Connected apps -->
-    <div class="section-label">Connected Apps</div>
-    <div class="pills">
-        <div class="pill connected">
-            <span class="check">✓</span>
-            Gmail
-        </div>
-        <div class="pill connected">
-            <span class="check">✓</span>
-            Docs
-        </div>
-        <div class="pill connected">
-            <span class="check">✓</span>
-            Slack
+            <!-- Gmail -->
+            <div class="connector-row connected">
+                <div class="app-dot gmail">✉️</div>
+                <div class="connector-info">
+                    <div class="connector-name">Gmail</div>
+                    <div class="connector-sub">Sent email interception + polling</div>
+                </div>
+                <span class="connector-badge badge-recording">Active</span>
+            </div>
+
+            <!-- Google Docs -->
+            <div class="connector-row connected">
+                <div class="app-dot docs">📄</div>
+                <div class="connector-info">
+                    <div class="connector-name">Google Docs</div>
+                    <div class="connector-sub">Document edit interception</div>
+                </div>
+                <span class="connector-badge badge-recording">Active</span>
+            </div>
+
+            <!-- Slack -->
+            <div class="connector-row" id="slack-row">
+                <div class="app-dot slack">#️⃣</div>
+                <div class="connector-info">
+                    <div class="connector-name">Slack</div>
+                    <div class="connector-sub" id="slack-sub">Message interception active</div>
+                </div>
+                <span class="connector-badge badge-recording" id="slack-badge">Active</span>
+            </div>
         </div>
     </div>
 
-    <!-- Open Dashboard button -->
-    <a class="btn-dashboard" href="http://localhost:3000" target="_blank">
-        Open Dashboard <span class="arrow">→</span>
-    </a>
+    <!-- Slack rollback notice -->
+    <div class="section" id="slack-notice" style="padding-top:8px; padding-bottom:10px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:9px 10px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.18);border-radius:8px;">
+            <span style="font-size:13px;flex-shrink:0;margin-top:1px;">⚠️</span>
+            <div>
+                <div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:2px;">Slack rollback requires workspace token</div>
+                <div style="font-size:10px;color:var(--muted);line-height:1.5;">
+                    Trailback can <em>record</em> Slack actions now. To <em>reverse</em> them, connect your Slack workspace from the Connectors page.
+                </div>
+                <button id="btn-slack-connect" style="margin-top:6px;font-size:10px;font-weight:600;color:var(--amber);background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;padding:0;text-decoration:underline;">
+                    Open Connectors →
+                </button>
+            </div>
+        </div>
+    </div>
 
-    <div class="footer">v1.0.0</div>
+    <!-- Dashboard button -->
+    <div class="footer-actions">
+        <a id="btn-dashboard" class="btn-dashboard" href="#" target="_blank">
+            Open Dashboard <span class="arrow">→</span>
+        </a>
+        <div class="version" id="version-label">v1.0.0</div>
+    </div>
+</div>
 
-    <script>
-    // ─────────────────────────────────────────────────────────────
-    // Popup auth state logic
-    // ─────────────────────────────────────────────────────────────
-
-    const statusBadge = document.getElementById('status-badge');
-    const authSection = document.getElementById('auth-section');
-    const userEmail   = document.getElementById('user-email');
-    const signInBtn   = document.getElementById('btn-signin');
-
-    /**
-     * Decode the email from a JWT access_token.
-     * The middle segment (payload) is base64-encoded JSON.
-     */
-    function decodeEmailFromJWT(token) {
-        try {
-            const payload = JSON.parse(
-                atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
-            );
-            return payload.email || null;
-        } catch {
-            return null;
-        }
-    }
-
-    /**
-     * Render the signed-in state.
-     * Shows the green Recording badge and user email.
-     */
-    function showSignedIn(email) {
-        statusBadge.style.display = 'flex';
-        authSection.style.display = 'none';
-
-        if (email) {
-            userEmail.textContent = email;
-            userEmail.style.display = 'block';
-        }
-    }
-
-    /**
-     * Render the signed-out state.
-     * Hides the Recording badge, shows sign-in prompt.
-     */
-    function showSignedOut() {
-        statusBadge.style.display = 'none';
-        authSection.style.display = 'flex';
-        userEmail.style.display = 'none';
-    }
-
-    /**
-     * On popup load: ask service worker for current auth status.
-     */
-    chrome.runtime.sendMessage({ type: 'TRAILBACK_AUTH_STATUS' }, (response) => {
-        if (chrome.runtime.lastError) {
-            // Service worker not ready yet — default to signed-out view
-            showSignedOut();
-            return;
-        }
-
-        if (response && response.signedIn) {
-            // Prefer email from storage; fall back to reading from token in storage
-            showSignedIn(response.email);
-        } else {
-            showSignedOut();
-        }
-    });
-
-    /**
-     * Sign-in button handler:
-     * Tells the service worker to launch the Supabase OAuth flow.
-     * On success, re-render the signed-in UI.
-     */
-    signInBtn.addEventListener('click', () => {
-        signInBtn.disabled = true;
-        signInBtn.textContent = 'Signing in…';
-
-        chrome.runtime.sendMessage({ type: 'TRAILBACK_SIGN_IN' }, (response) => {
-            if (chrome.runtime.lastError || !response?.ok) {
-                signInBtn.disabled = false;
-                signInBtn.textContent = 'Sign in to record';
-                console.error('[Trailback Popup] Sign-in failed:', chrome.runtime.lastError || response?.error);
-                return;
-            }
-
-            // Decode email from the returned token
-            const email = decodeEmailFromJWT(response.token);
-            showSignedIn(email);
-        });
-    });
-    </script>
-
+<script src="popup.js"></script>
 </body>
-
 </html>
