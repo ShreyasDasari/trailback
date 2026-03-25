@@ -77,25 +77,38 @@ chrome.runtime.sendMessage({ type: 'TRAILBACK_AUTH_STATUS' }, (response) => {
 // ── Sign-in via Supabase OAuth (inside extension) ────────────────────────────
 
 signinBtn.addEventListener('click', () => {
-  signinBtn.disabled   = true;
-  signinLabel.textContent = 'Signing in…';
+  signinBtn.disabled = true;
+  signinLabel.textContent = 'Opening login page…';
 
+  // Opens the web app login in a new tab.
+  // extension-bridge.js on that domain will relay the session back.
   chrome.runtime.sendMessage({ type: 'TRAILBACK_SIGN_IN' }, (response) => {
     if (chrome.runtime.lastError || !response?.ok) {
       signinBtn.disabled = false;
       signinLabel.textContent = 'Continue with Google';
-      console.error('[Trailback Popup] Sign-in failed:', chrome.runtime.lastError || response?.error);
+      console.error('[Trailback Popup] Failed to open login tab:', chrome.runtime.lastError || response?.error);
       return;
     }
 
-    // Decode email from token
-    let email = null;
-    try {
-      const payload = JSON.parse(atob(response.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      email = payload.email || null;
-    } catch { /* non-fatal */ }
+    // Tab opened — update label and poll for session
+    signinLabel.textContent = 'Waiting for sign-in…';
 
-    showSignedIn(email);
+    // Poll every 1.5s for up to 90s until the session arrives
+    let attempts = 0;
+    const maxAttempts = 60;
+    const poll = setInterval(() => {
+      attempts++;
+      chrome.runtime.sendMessage({ type: 'TRAILBACK_AUTH_STATUS' }, (res) => {
+        if (res?.signedIn) {
+          clearInterval(poll);
+          showSignedIn(res.email);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          signinBtn.disabled = false;
+          signinLabel.textContent = 'Continue with Google';
+        }
+      });
+    }, 1500);
   });
 });
 

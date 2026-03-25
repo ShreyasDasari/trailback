@@ -409,14 +409,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
-  // Popup requests a sign-in trigger
+  // Popup requests a sign-in — open the Trailback web app login page in a new tab.
+  // The extension-bridge.js content script on that domain will relay the session
+  // back once the user completes Google sign-in on the web app.
   if (message.type === 'TRAILBACK_SIGN_IN') {
-    signInWithSupabase()
-      .then((token) => sendResponse({ ok: true, token }))
-      .catch((err) => {
-        console.error('[Trailback] Sign-in failed:', err);
-        sendResponse({ ok: false, error: err.message });
-      });
+    const DASHBOARD_URL = 'https://trailback-e1m115036-shreyasdasaris-projects.vercel.app';
+    chrome.tabs.create({ url: `${DASHBOARD_URL}/login?from=extension` }, (tab) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ ok: true, tab_opened: tab?.id });
+      }
+    });
+    return true;
+  }
+
+  // extension-bridge.js content script relays the session after web app login.
+  if (message.type === 'TRAILBACK_SET_TOKEN') {
+    const { access_token, refresh_token, expires_at } = message;
+    if (!access_token) {
+      sendResponse({ ok: false, error: 'No access_token provided' });
+      return true;
+    }
+
+    // Decode email from JWT payload (best-effort)
+    let email = null;
+    try {
+      const payload = JSON.parse(atob(access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      email = payload.email || null;
+    } catch { /* non-fatal */ }
+
+    // expires_at from Supabase is epoch seconds — convert to ms
+    const expiryMs = expires_at ? expires_at * 1000 : Date.now() + 3600 * 1000;
+
+    chrome.storage.local.set({
+      [STORAGE_KEY_TOKEN]:   access_token,
+      [STORAGE_KEY_REFRESH]: refresh_token || null,
+      [STORAGE_KEY_EXPIRY]:  expiryMs,
+      [STORAGE_KEY_EMAIL]:   email,
+    }).then(() => {
+      console.log('[Trailback] Session stored from web app bridge. Email:', email);
+      sendResponse({ ok: true });
+    }).catch((err) => {
+      sendResponse({ ok: false, error: err.message });
+    });
 
     return true;
   }

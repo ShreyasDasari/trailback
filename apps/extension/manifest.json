@@ -17,7 +17,8 @@
         "https://docs.google.com/*",
         "https://drive.google.com/*",
         "https://app.slack.com/*",
-        "https://*.googleapis.com/*"
+        "https://*.googleapis.com/*",
+        "https://trailback-e1m115036-shreyasdasaris-projects.vercel.app/*"
     ],
 
     "oauth2": {
@@ -60,6 +61,13 @@
             ],
             "js": ["content-scripts/storage-bridge.js"],
             "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://trailback-e1m115036-shreyasdasaris-projects.vercel.app/auth/*"
+            ],
+            "js": ["content-scripts/extension-bridge.js"],
+            "run_at": "document_end"
         }
     ],
 
