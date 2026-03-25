@@ -46,7 +46,11 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback${
+          new URLSearchParams(window.location.search).get("from") === "extension"
+            ? "?ext=1"
+            : ""
+        }`,
         scopes: [
           "openid",
           "email",

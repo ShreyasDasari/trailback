@@ -65,6 +65,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth/error?reason=exchange_failed`)
   }
 
-  // ── Success: send user to the timeline dashboard ─────────────
+  // ── Success: redirect based on origin ───────────────────────
+  // When the sign-in was initiated from the Chrome extension (login?from=extension
+  // → we encode ext=1 in the next param), send to /auth/success so the
+  // extension-bridge content script can relay the session to the extension.
+  const next = searchParams.get("next") ?? ""
+  const fromExtension = next.includes("ext=1") || searchParams.get("ext") === "1"
+
+  if (fromExtension) {
+    return NextResponse.redirect(`${origin}/auth/success?ext=1`)
+  }
+
   return NextResponse.redirect(`${origin}/timeline`)
 }
