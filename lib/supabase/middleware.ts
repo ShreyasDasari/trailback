@@ -55,7 +55,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user && pathname === '/login') {
+  // Redirect authenticated users from public pages to dashboard
+  if (user && (pathname === '/login' || pathname === '/')) {
     const url = request.nextUrl.clone()
     url.pathname = '/timeline'
     return NextResponse.redirect(url)
