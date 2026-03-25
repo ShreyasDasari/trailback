@@ -746,17 +746,34 @@ export default function LandingPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const handleAuth = async () => {
+      // Check if there's an OAuth code in the URL (Supabase redirected here)
+      const url = new URL(window.location.href)
+      const code = url.searchParams.get('code')
+      
+      if (code) {
+        // Exchange the code for a session
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (!error) {
+          // Clear the code from URL and redirect to dashboard
+          router.replace('/timeline')
+          return
+        } else {
+          console.error("[v0] Code exchange failed:", error.message)
+          // Clear the code from URL
+          window.history.replaceState({}, '', '/')
+        }
+      }
+      
+      // Check if user is already authenticated
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        // User is authenticated, redirect to dashboard
         router.replace('/timeline')
       } else {
-        // User is not authenticated, show landing page
         setLoading(false)
       }
     }
-    checkAuth()
+    handleAuth()
   }, [supabase, router])
 
   if (loading) {
