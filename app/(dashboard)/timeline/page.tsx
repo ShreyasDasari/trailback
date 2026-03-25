@@ -14,6 +14,7 @@ export default function TimelinePage() {
   const [agents, setAgents] = useState<Record<string, Agent>>({})
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [filters, setFilters] = useState<TimelineFilters>({
     app: "all",
     riskLevel: "all",
@@ -23,6 +24,7 @@ export default function TimelinePage() {
   const supabase = createClient()
 
   const fetchEvents = useCallback(async () => {
+    setFetchError(null)
     let query = supabase
       .from("events")
       .select("*")
@@ -41,6 +43,9 @@ export default function TimelinePage() {
 
     if (error) {
       console.error("Error fetching events:", error)
+      setFetchError("Failed to load events. Check your connection and try again.")
+      setLoading(false)
+      setIsRefreshing(false)
       return
     }
 
@@ -65,46 +70,55 @@ export default function TimelinePage() {
     fetchAgents()
   }, [fetchEvents, fetchAgents])
 
-  // Realtime subscription
+  // Realtime subscription — filtered per user to respect RLS
   useEffect(() => {
-    const channel = supabase
-      .channel("events-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "events",
-        },
-        (payload) => {
-          const newEvent = payload.new as Event
-          // Only add if it matches current filters
-          const matchesApp = filters.app === "all" || newEvent.app === filters.app
-          const matchesRisk = filters.riskLevel === "all" || newEvent.risk_level === filters.riskLevel
-          
-          if (matchesApp && matchesRisk) {
-            setEvents((prev) => [newEvent, ...prev])
+    let channel: ReturnType<typeof supabase.channel>
+
+    async function setupRealtime() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return // Never subscribe without a known user_id
+
+      channel = supabase
+        .channel(`events-realtime-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "events",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const newEvent = payload.new as Event
+            const matchesApp = filters.app === "all" || newEvent.app === filters.app
+            const matchesRisk = filters.riskLevel === "all" || newEvent.risk_level === filters.riskLevel
+            if (matchesApp && matchesRisk) {
+              setEvents((prev) => [newEvent, ...prev])
+            }
           }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "events",
-        },
-        (payload) => {
-          const updatedEvent = payload.new as Event
-          setEvents((prev) =>
-            prev.map((e) => (e.id === updatedEvent.id ? updatedEvent : e))
-          )
-        }
-      )
-      .subscribe()
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "events",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const updatedEvent = payload.new as Event
+            setEvents((prev) =>
+              prev.map((e) => (e.id === updatedEvent.id ? updatedEvent : e))
+            )
+          }
+        )
+        .subscribe()
+    }
+
+    setupRealtime()
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
   }, [supabase, filters])
 
@@ -164,6 +178,24 @@ export default function TimelinePage() {
         <FilterBar filters={filters} onFiltersChange={setFilters} />
       </motion.div>
 
+      {/* Inline error banner */}
+      {fetchError && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-6 mt-4 flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+        >
+          <span className="shrink-0">⚠</span>
+          <span className="flex-1">{fetchError}</span>
+          <button
+            onClick={handleRefresh}
+            className="shrink-0 underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </motion.div>
+      )}
+
       {/* Event Feed */}
       <div className="p-6 space-y-3">
         <AnimatePresence mode="popLayout">
@@ -186,8 +218,31 @@ export default function TimelinePage() {
                 </motion.div>
               ))}
             </motion.div>
+          ) : events.length === 0 && (filters.app !== "all" || filters.riskLevel !== "all") ? (
+            // Filtered empty state
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center py-20 text-center"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted border border-border mb-5">
+                <RefreshCw className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                No actions match your filters.
+              </h3>
+              <p className="text-sm text-muted-foreground mb-5">
+                Try adjusting or clearing your filters to see more results.
+              </p>
+              <button
+                onClick={() => setFilters({ app: "all", riskLevel: "all", dateRange: { from: null, to: null } })}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-secondary rounded-lg hover:bg-secondary/80 transition-colors border border-border"
+              >
+                Clear filters
+              </button>
+            </motion.div>
           ) : events.length === 0 ? (
-            // Empty state with animation
+            // True empty state — no events at all
             <motion.div
               initial={{ opacity: 0, y: 40, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -215,11 +270,10 @@ export default function TimelinePage() {
                 transition={{ delay: 0.2 }}
               >
                 <h3 className="text-xl font-semibold text-foreground mb-3">
-                  No events recorded yet
+                  No agent activity yet.
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-sm mb-6">
-                  Install the Trailback browser extension and connect your apps to
-                  start recording AI agent actions.
+                  Install the extension to start recording.
                 </p>
               </motion.div>
 

@@ -8,7 +8,7 @@ export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
 
 export type EventStatus = 'pending' | 'completed' | 'failed' | 'rolled_back'
 
-export type RollbackStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'partial'
+export type RollbackStatus = 'available' | 'pending' | 'in_progress' | 'completed' | 'executed' | 'failed' | 'partial' | 'unavailable'
 
 export type AgentType = 'claude' | 'gpt' | 'gemini' | 'copilot' | 'custom'
 

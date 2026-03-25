@@ -35,16 +35,23 @@ export default function RollbackPage({ params }: PageProps) {
   const [step, setStep] = useState<RollbackStep>("confirm")
   const [rollback, setRollback] = useState<Rollback | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const supabase = createClient()
 
   useEffect(() => {
     async function fetchData() {
-      const { data: eventData } = await supabase
+      const { data: eventData, error: eventError } = await supabase
         .from("events")
         .select("*")
         .eq("id", id)
         .single()
+
+      if (eventError && eventError.code !== 'PGRST116') {
+        setFetchError("Failed to load event details. Check your connection.")
+        setLoading(false)
+        return
+      }
 
       if (eventData) {
         setEvent(eventData)
@@ -286,6 +293,25 @@ export default function RollbackPage({ params }: PageProps) {
     )
   }
 
+  if (fetchError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-md w-full text-center space-y-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 mx-auto">
+            <XCircle className="h-7 w-7 text-red-400" />
+          </div>
+          <h2 className="text-lg font-medium text-foreground">{fetchError}</h2>
+          <button
+            onClick={() => router.refresh()}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-secondary rounded-md hover:bg-secondary/80 transition-colors"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (!event) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -301,7 +327,20 @@ export default function RollbackPage({ params }: PageProps) {
     )
   }
 
-  if (event.status === "rolled_back") {
+  // Show a clear explanation for every non-available rollback_status
+  const unavailableReasons: Record<string, { title: string; body: string }> = {
+    executed:    { title: "Already rolled back",     body: "This action has already been reversed." },
+    rolled_back: { title: "Already rolled back",     body: "This action has already been reversed." },
+    completed:   { title: "Already rolled back",     body: "This action has already been reversed." },
+    in_progress: { title: "Rollback in progress",    body: "A rollback is already being processed. Check back in a moment." },
+    failed:      { title: "Previous rollback failed", body: "The last rollback attempt failed. Review the event details before retrying." },
+    unavailable: { title: "Rollback not available",  body: "This event type cannot be rolled back automatically." },
+  }
+
+  const rollbackStatus = event.rollback_status ?? "unavailable"
+  const unavailableInfo = rollbackStatus !== "available" ? unavailableReasons[rollbackStatus] ?? { title: "Rollback unavailable", body: `Current status: ${rollbackStatus}` } : null
+
+  if (unavailableInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <motion.div
@@ -313,10 +352,10 @@ export default function RollbackPage({ params }: PageProps) {
             <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
           </div>
           <h2 className="text-lg font-medium text-foreground mb-2">
-            Already rolled back
+            {unavailableInfo.title}
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            This action has already been reversed.
+            {unavailableInfo.body}
           </p>
           <Link
             href="/timeline"
