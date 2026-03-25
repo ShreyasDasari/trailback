@@ -3,14 +3,19 @@
 # Validates all incoming event payloads from the extension.
 # ─────────────────────────────────────────────────────────────
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict, Any
 from uuid import uuid4
 
 
 class SnapshotPayload(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     content: Optional[str] = None
     content_type: Optional[str] = "text/plain"
+    requests: Optional[Any] = None
+    captured_at: Optional[str] = None
+
 
 
 class EventPayload(BaseModel):

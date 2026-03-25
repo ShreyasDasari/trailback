@@ -54,11 +54,13 @@
                     type: 'TRAILBACK_EVENT',
                     payload: {
                         app: 'gdocs',
-                        action_type: 'document.edit',
+                        action_type: 'doc.edit',
                         agent_id: detectAgentId(),
                         intent: null,
+                        idempotency_key: crypto.randomUUID(),
                         metadata: {
                             document_id: documentId,
+                            file_id:     documentId,
                             revision_id: data.revisionId || null,
                             title: data.title || null,
                             url: window.location.href,
@@ -109,14 +111,20 @@
         return 'unknown-agent';
     }
 
+    /**
+     * Fallback: relay via window.postMessage to storage-bridge.js
+     * (isolated-world script that writes to chrome.storage.local).
+     * localStorage is NOT accessible to the service worker and events
+     * written there are permanently lost — this bridge fixes that.
+     */
     function queueEventLocally(payload) {
         try {
-            const key = 'trailback_fallback_queue';
-            const existing = JSON.parse(localStorage.getItem(key) || '[]');
-            existing.push({ ...payload, queued_at: Date.now() });
-            localStorage.setItem(key, JSON.stringify(existing));
+            window.postMessage({
+                type: 'TRAILBACK_FALLBACK_QUEUE',
+                payload: { ...payload, id: crypto.randomUUID(), queued_at: Date.now() },
+            }, '*');
         } catch (e) {
-            console.warn('[Trailback] Could not queue event locally:', e.message);
+            console.warn('[Trailback] Could not relay event to storage bridge:', e.message);
         }
     }
 

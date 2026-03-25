@@ -43,11 +43,22 @@
         {
             "matches": ["https://docs.google.com/document/*"],
             "js": ["content-scripts/docs-interceptor.js"],
+            "world": "MAIN",
             "run_at": "document_idle"
         },
         {
             "matches": ["https://app.slack.com/*"],
             "js": ["content-scripts/slack-interceptor.js"],
+            "world": "MAIN",
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://mail.google.com/*",
+                "https://docs.google.com/document/*",
+                "https://app.slack.com/*"
+            ],
+            "js": ["content-scripts/storage-bridge.js"],
             "run_at": "document_idle"
         }
     ],

@@ -76,7 +76,7 @@ async def ingest_event(
         app=payload.app,
         action_type=payload.action_type,
         metadata=payload.metadata,
-        before=payload.before_snapshot.dict() if payload.before_snapshot else None,
+        before=payload.before_snapshot.model_dump() if payload.before_snapshot else None,
         after=payload.after_snapshot,
         agent=None
     )
@@ -104,7 +104,7 @@ async def ingest_event(
 
     # ── Step 4: Insert before snapshot ────────────────────────
     if payload.before_snapshot and payload.before_snapshot.content:
-        before_content = payload.before_snapshot.dict()
+        before_content = payload.before_snapshot.model_dump()
         before_str = json.dumps(before_content)
         supabase.table("snapshots").insert({
             "event_id":      event_id,

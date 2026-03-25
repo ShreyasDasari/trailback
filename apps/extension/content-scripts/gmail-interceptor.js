@@ -58,6 +58,7 @@
             action_type: 'email.send',
             agent_id: detectAgentId(),
             intent: null,
+            idempotency_key: crypto.randomUUID(),
             metadata: {
               message_id: data.id || null,
               thread_id: data.threadId || null,
@@ -157,14 +158,20 @@
    * Fallback: queue event in localStorage if service worker
    * is unreachable. Service worker will pick this up on next wake.
    */
+  /**
+   * Fallback: relay via window.postMessage to storage-bridge.js
+   * (isolated-world script that writes to chrome.storage.local).
+   * localStorage is NOT accessible to the service worker and events
+   * written there are permanently lost — this bridge fixes that.
+   */
   function queueEventLocally(payload) {
     try {
-      const key = 'trailback_fallback_queue';
-      const existing = JSON.parse(localStorage.getItem(key) || '[]');
-      existing.push({ ...payload, queued_at: Date.now() });
-      localStorage.setItem(key, JSON.stringify(existing));
+      window.postMessage({
+        type: 'TRAILBACK_FALLBACK_QUEUE',
+        payload: { ...payload, id: crypto.randomUUID(), queued_at: Date.now() },
+      }, '*');
     } catch (e) {
-      console.warn('[Trailback] Could not queue event locally:', e.message);
+      console.warn('[Trailback] Could not relay event to storage bridge:', e.message);
     }
   }
 
