@@ -9,6 +9,7 @@ from db.supabase_client import supabase
 from core.risk_classifier import classify_event
 from models.event import EventPayload
 from api.deps import get_current_user
+from workers.tasks import execute_rollback as execute_rollback_task
 from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional
@@ -37,11 +38,21 @@ app.add_middleware(
 
 @app.get("/api/v1/health")
 async def health():
+    # Perform a real DB ping — not a hardcoded response
+    db_status = "connected"
+    db_error = None
+    try:
+        supabase.table("events").select("count", count="exact").limit(0).execute()
+    except Exception as exc:
+        db_status = "error"
+        db_error = str(exc)
+
     return {
-        "status": "healthy",
-        "version": "1.0.0",
+        "status":    "healthy" if db_status == "connected" else "degraded",
+        "version":   "1.0.0",
         "timestamp": datetime.utcnow().isoformat(),
-        "db": "connected"
+        "db":        db_status,
+        **(  {"db_error": db_error} if db_error else {}  ),
     }
 
 
@@ -64,12 +75,16 @@ async def ingest_event(
             .execute()
 
         if existing.data:
-            return {
-                "event_id": existing.data[0]["id"],
-                "risk_level": existing.data[0]["risk_level"],
-                "rollback_status": existing.data[0]["rollback_status"],
-                "duplicate": True
-            }
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code":           "DUPLICATE_EVENT",
+                    "message":        "Event already recorded (idempotency key matched)",
+                    "event_id":       existing.data[0]["id"],
+                    "risk_level":     existing.data[0]["risk_level"],
+                    "rollback_status": existing.data[0]["rollback_status"],
+                }
+            )
 
     # ── Step 2: Run risk classification ───────────────────────
     risk = classify_event(
@@ -272,16 +287,23 @@ async def initiate_rollback(
             detail="Rollback requires confirmation: true"
         )
 
+    user_id = current_user["user_id"]
+
+    # ── Fetch event and validate ownership ───────────────────
     event_result = supabase.table("events") \
-        .select("*") \
+        .select("id, app, rollback_status, user_id, metadata") \
         .eq("id", event_id) \
-        .eq("user_id", current_user["user_id"]) \
+        .eq("user_id", user_id) \
         .execute()
 
     if not event_result.data:
         raise HTTPException(status_code=404, detail="Event not found")
 
     event = event_result.data[0]
+
+    # Belt-and-suspenders user_id ownership check
+    if event["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Event does not belong to this user")
 
     if event["rollback_status"] != "available":
         raise HTTPException(
@@ -293,127 +315,28 @@ async def initiate_rollback(
             }
         )
 
+    # ── Insert rollback record as pending ─────────────────────
     rollback_insert = supabase.table("rollbacks").insert({
         "event_id":     event_id,
-        "user_id":      current_user["user_id"],
+        "user_id":      user_id,
         "initiated_by": "user",
         "result":       "pending",
     }).execute()
 
+    if not rollback_insert.data:
+        raise HTTPException(status_code=500, detail="Failed to create rollback record")
+
     rollback_id = rollback_insert.data[0]["id"]
 
-    result = None
-    failure_reason = None
+    # ── Dispatch async Celery task — returns immediately ──────
+    execute_rollback_task.delay(rollback_id, event_id, user_id)
 
-    try:
-        if event["app"] == "gmail":
-            message_id = event.get("metadata", {}).get("message_id")
-            if not message_id:
-                raise ValueError("No message_id found in event metadata")
-
-            connector = supabase.table("connectors") \
-                .select("oauth_token") \
-                .eq("app", "gmail") \
-                .eq("user_id", current_user["user_id"]) \
-                .execute()
-
-            if not connector.data or not connector.data[0].get("oauth_token"):
-                raise ValueError("Gmail connector not found or not authorized")
-
-            oauth_token = connector.data[0]["oauth_token"]
-
-            from connectors.gmail import trash_email
-            result = await trash_email(message_id, oauth_token)
-
-            if not result.get("success"):
-                raise ValueError(result.get("error", "Gmail trash failed"))
-
-        elif event["app"] == "slack":
-            channel = event.get("metadata", {}).get("channel")
-            ts = event.get("metadata", {}).get("ts")
-            if not channel or not ts:
-                raise ValueError("No channel or ts found in event metadata")
-
-            connector = supabase.table("connectors") \
-                .select("oauth_token") \
-                .eq("app", "slack") \
-                .eq("user_id", event.get("user_id")) \
-                .execute()
-
-            if not connector.data or not connector.data[0].get("oauth_token"):
-                raise ValueError("Slack connector not found or not authorized")
-
-            bot_token = connector.data[0]["oauth_token"]
-
-            from connectors.slack import delete_message
-            result = await delete_message(channel, ts, bot_token)
-
-            if not result.get("success"):
-                raise ValueError(result.get("error", "Slack delete failed"))
-
-        elif event["app"] == "gdocs":
-            file_id = event.get("metadata", {}).get("file_id")
-            revision_id = event.get("metadata", {}).get("revision_id")
-            if not file_id or not revision_id:
-                raise ValueError("No file_id or revision_id found in event metadata")
-
-            connector = supabase.table("connectors") \
-                .select("oauth_token") \
-                .eq("app", "gdocs") \
-                .eq("user_id", event.get("user_id")) \
-                .execute()
-
-            if not connector.data or not connector.data[0].get("oauth_token"):
-                raise ValueError("Google Docs connector not found or not authorized")
-
-            oauth_token = connector.data[0]["oauth_token"]
-
-            from connectors.gdocs import restore_revision
-            result = await restore_revision(file_id, revision_id, oauth_token)
-
-            if not result.get("success"):
-                raise ValueError(result.get("error", "Google Docs restore failed"))
-
-        else:
-            raise ValueError(f"Unknown app: {event['app']}")
-
-        supabase.table("rollbacks").update({
-            "result":       "success",
-            "api_response": result,
-        }).eq("id", rollback_id).execute()
-
-        supabase.table("events").update({
-            "rollback_status": "executed",
-            "status":          "rolled_back",
-        }).eq("id", event_id).execute()
-
-        return {
-            "rollback_id": rollback_id,
-            "event_id":    event_id,
-            "status":      "success",
-            "result":      result,
-        }
-
-    except Exception as exc:
-        failure_reason = str(exc)
-
-        supabase.table("rollbacks").update({
-            "result":         "failed",
-            "failure_reason": failure_reason,
-        }).eq("id", rollback_id).execute()
-
-        supabase.table("events").update({
-            "rollback_status": "failed",
-        }).eq("id", event_id).execute()
-
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code":        "ROLLBACK_FAILED",
-                "message":     failure_reason,
-                "rollback_id": rollback_id,
-            }
-        )
+    return {
+        "rollback_id": rollback_id,
+        "event_id":    event_id,
+        "status":      "pending",
+        "message":     "Rollback queued. Poll /api/v1/rollback/{rollback_id}/status for result.",
+    }
 
 
 # ─────────────────────────────────────────────────────────────
