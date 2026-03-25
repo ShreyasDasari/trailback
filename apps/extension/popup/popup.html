@@ -1,13 +1,4 @@
 <!DOCTYPE html>
-<html>
-
-<body>
-    <h3>Trailback</h3>
-    <p>Recording...</p>
-</body>
-
-</html>
-<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -34,6 +25,8 @@
             --green: #22c55e;
             --green-dim: rgba(34, 197, 94, 0.12);
             --accent: #6ee7b7;
+            --amber: #f59e0b;
+            --amber-dim: rgba(245, 158, 11, 0.12);
         }
 
         body {
@@ -65,7 +58,7 @@
             color: var(--accent);
         }
 
-        /* ── Status badge ── */
+        /* ── Status badge: Recording (signed in) ── */
         .status {
             display: flex;
             align-items: center;
@@ -86,17 +79,8 @@
         }
 
         @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-
-            50% {
-                opacity: 0.6;
-                transform: scale(0.85);
-            }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.6; transform: scale(0.85); }
         }
 
         .status-label {
@@ -105,6 +89,72 @@
             letter-spacing: 0.06em;
             text-transform: uppercase;
             color: var(--green);
+        }
+
+        /* ── Auth prompt (signed out) ── */
+        #auth-section {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 0 8px;
+        }
+
+        .auth-message {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .btn-signin {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 16px;
+            background: var(--amber-dim);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            border-radius: 10px;
+            color: var(--amber);
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, transform 0.1s;
+            letter-spacing: 0.01em;
+        }
+
+        .btn-signin:hover {
+            background: rgba(245, 158, 11, 0.18);
+            border-color: rgba(245, 158, 11, 0.55);
+            transform: translateY(-1px);
+        }
+
+        .btn-signin:active {
+            transform: translateY(0);
+        }
+
+        .btn-signin:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── User email strip ── */
+        #user-email {
+            display: none;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'IBM Plex Mono', monospace;
+            text-align: right;
+            margin-top: -10px;
+            margin-bottom: 10px;
+            letter-spacing: 0.02em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         /* ── Divider ── */
@@ -214,10 +264,26 @@
     <!-- Header: logo + status -->
     <div class="header">
         <div class="logo">trail<span>back</span></div>
-        <div class="status">
+
+        <!-- Shown when signed in -->
+        <div id="status-badge" class="status" style="display:none;">
             <div class="status-dot"></div>
             <span class="status-label">Recording</span>
         </div>
+    </div>
+
+    <!-- User email (shown when signed in) -->
+    <div id="user-email"></div>
+
+    <!-- Auth section (shown when signed out) -->
+    <div id="auth-section">
+        <p class="auth-message">Sign in to start recording AI agent actions.</p>
+        <button id="btn-signin" class="btn-signin">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+            </svg>
+            Sign in to record
+        </button>
     </div>
 
     <div class="divider"></div>
@@ -244,7 +310,98 @@
         Open Dashboard <span class="arrow">→</span>
     </a>
 
+    <div class="footer">v1.0.0</div>
 
+    <script>
+    // ─────────────────────────────────────────────────────────────
+    // Popup auth state logic
+    // ─────────────────────────────────────────────────────────────
+
+    const statusBadge = document.getElementById('status-badge');
+    const authSection = document.getElementById('auth-section');
+    const userEmail   = document.getElementById('user-email');
+    const signInBtn   = document.getElementById('btn-signin');
+
+    /**
+     * Decode the email from a JWT access_token.
+     * The middle segment (payload) is base64-encoded JSON.
+     */
+    function decodeEmailFromJWT(token) {
+        try {
+            const payload = JSON.parse(
+                atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+            );
+            return payload.email || null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Render the signed-in state.
+     * Shows the green Recording badge and user email.
+     */
+    function showSignedIn(email) {
+        statusBadge.style.display = 'flex';
+        authSection.style.display = 'none';
+
+        if (email) {
+            userEmail.textContent = email;
+            userEmail.style.display = 'block';
+        }
+    }
+
+    /**
+     * Render the signed-out state.
+     * Hides the Recording badge, shows sign-in prompt.
+     */
+    function showSignedOut() {
+        statusBadge.style.display = 'none';
+        authSection.style.display = 'flex';
+        userEmail.style.display = 'none';
+    }
+
+    /**
+     * On popup load: ask service worker for current auth status.
+     */
+    chrome.runtime.sendMessage({ type: 'TRAILBACK_AUTH_STATUS' }, (response) => {
+        if (chrome.runtime.lastError) {
+            // Service worker not ready yet — default to signed-out view
+            showSignedOut();
+            return;
+        }
+
+        if (response && response.signedIn) {
+            // Prefer email from storage; fall back to reading from token in storage
+            showSignedIn(response.email);
+        } else {
+            showSignedOut();
+        }
+    });
+
+    /**
+     * Sign-in button handler:
+     * Tells the service worker to launch the Supabase OAuth flow.
+     * On success, re-render the signed-in UI.
+     */
+    signInBtn.addEventListener('click', () => {
+        signInBtn.disabled = true;
+        signInBtn.textContent = 'Signing in…';
+
+        chrome.runtime.sendMessage({ type: 'TRAILBACK_SIGN_IN' }, (response) => {
+            if (chrome.runtime.lastError || !response?.ok) {
+                signInBtn.disabled = false;
+                signInBtn.textContent = 'Sign in to record';
+                console.error('[Trailback Popup] Sign-in failed:', chrome.runtime.lastError || response?.error);
+                return;
+            }
+
+            // Decode email from the returned token
+            const email = decodeEmailFromJWT(response.token);
+            showSignedIn(email);
+        });
+    });
+    </script>
 
 </body>
 
