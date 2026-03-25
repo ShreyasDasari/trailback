@@ -175,26 +175,28 @@ export default function ConnectorsPage() {
                   key={config.app}
                   initial={{ opacity: 0, y: 30, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ 
+                  transition={{
                     delay: index * 0.1,
                     type: "spring",
                     stiffness: 100,
                     damping: 15
                   }}
                   whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                  className={cn(
-                    "relative rounded-xl border bg-card p-5 transition-all duration-300",
-                    isConnected 
-                      ? `${config.borderColor} shadow-lg` 
-                      : "border-border hover:border-primary/20"
-                  )}
+                  whileTap={{ scale: 0.97 }}
+                  className="relative rounded-xl border bg-[var(--bg-surface)] p-5 transition-all duration-300"
+                  style={{
+                    borderColor: isConnected ? "rgba(52,211,153,0.35)" : "var(--border)",
+                    boxShadow: isConnected
+                      ? "0 0 0 1px rgba(52,211,153,0.15), 0 4px 24px -4px rgba(52,211,153,0.12)"
+                      : undefined,
+                  }}
                 >
-                  {/* Connected glow effect */}
+                  {/* Connected emerald glow */}
                   {isConnected && (
-                    <div className={cn(
-                      "absolute inset-0 rounded-xl opacity-20 blur-xl -z-10",
-                      config.bgColor
-                    )} />
+                    <div
+                      className="absolute inset-0 rounded-xl -z-10 opacity-30 blur-xl"
+                      style={{ background: "radial-gradient(ellipse at top left, rgba(52,211,153,0.3), transparent 70%)" }}
+                    />
                   )}
 
                   <div className="flex items-start justify-between mb-4">
@@ -257,12 +259,16 @@ export default function ConnectorsPage() {
 
                   <motion.div
                     whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileTap={{ scale: 0.97 }}
                   >
                     {isConnected ? (
                       <button
                         onClick={() => handleDisconnect(connector!)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-muted-foreground bg-secondary/50 border border-border rounded-lg hover:bg-secondary hover:text-foreground transition-all duration-200"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5
+                                   text-sm font-medium text-[var(--text-muted)]
+                                   bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg
+                                   hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]
+                                   transition-all duration-200"
                       >
                         Disconnect
                       </button>
@@ -270,21 +276,15 @@ export default function ConnectorsPage() {
                       <button
                         onClick={() => handleConnect(config.app)}
                         disabled={isConnecting}
-                        className={cn(
-                          "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50",
-                          "text-primary-foreground bg-primary hover:bg-primary/90"
-                        )}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5
+                                   text-sm font-medium rounded-lg transition-all duration-200
+                                   disabled:opacity-50 text-[var(--bg-base)]
+                                   bg-[var(--accent)] hover:bg-[var(--accent)]/90"
                       >
                         {isConnecting ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Connecting...
-                          </>
+                          <><Loader2 className="h-4 w-4 animate-spin" /> Connecting…</>
                         ) : (
-                          <>
-                            <Plug className="h-4 w-4" />
-                            Connect
-                          </>
+                          <><Plug className="h-4 w-4" /> Connect</>
                         )}
                       </button>
                     )}

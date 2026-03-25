@@ -1,28 +1,32 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { 
-  Clock, 
+import {
+  Clock,
   LogOut,
   Plug,
   Bot,
+  ChevronLeft,
   ChevronRight,
+  PanelLeftClose,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { TrailbackLogoMark } from "@/components/trailback-logo"
 
 const navItems = [
-  { href: "/timeline", label: "Timeline", icon: Clock, description: "Real-time event feed" },
-  { href: "/settings/connectors", label: "Connectors", icon: Plug, description: "Manage app integrations" },
-  { href: "/settings/agents", label: "Agents", icon: Bot, description: "Configure AI agents" },
+  { href: "/timeline",           label: "Timeline",   icon: Clock, description: "Real-time event feed" },
+  { href: "/settings/connectors",label: "Connectors", icon: Plug,  description: "Manage app integrations" },
+  { href: "/settings/agents",    label: "Agents",     icon: Bot,   description: "Configure AI agents" },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const supabase = createClient()
+  const [collapsed, setCollapsed] = useState(false)
 
   const handleSignOut = async () => {
     await supabase.auth.signOut({ scope: 'global' })
@@ -32,113 +36,175 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-60 flex-col border-r border-border bg-card/50 backdrop-blur-xl z-40">
-        {/* Logo */}
-        <Link 
-          href="/" 
-          className="flex items-center gap-3 px-5 py-5 border-b border-border group"
-        >
-          <motion.div
-            whileHover={{ rotate: [0, -10, 10, 0] }}
-            transition={{ duration: 0.4 }}
-          >
-            <TrailbackLogoMark size={36} />
-          </motion.div>
-          <span className="font-mono text-lg tracking-tight">
-            <span className="text-foreground">trail</span>
-            <span className="text-primary">back</span>
-          </span>
-        </Link>
+      <motion.aside
+        animate={{ width: collapsed ? 64 : 240 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="hidden md:flex fixed left-0 top-0 h-screen flex-col border-r border-[var(--border)]
+                   bg-[var(--bg-surface)] z-40 overflow-hidden"
+      >
+        {/* Logo row + recording dot */}
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-[var(--border)] shrink-0">
+          <Link href="/" className="flex items-center gap-3 group">
+            <motion.div whileHover={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 0.35 }}>
+              <TrailbackLogoMark size={32} />
+            </motion.div>
+            <AnimatePresence initial={false}>
+              {!collapsed && (
+                <motion.span
+                  key="wordmark"
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="font-mono text-base tracking-tight whitespace-nowrap overflow-hidden"
+                >
+                  <span className="text-[var(--text-primary)]">trail</span>
+                  <span className="text-[var(--accent)]">back</span>
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </Link>
+
+          {/* Recording status dot */}
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.div
+                key="dot"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="ml-auto flex items-center gap-1.5"
+                title="Recording"
+              >
+                <span className="recording-dot h-2 w-2 rounded-full bg-[var(--accent)] inline-block" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-2 py-3 space-y-0.5">
           {navItems.map((item, index) => {
             const isActive = pathname.startsWith(item.href)
             return (
               <motion.div
                 key={item.href}
-                initial={{ opacity: 0, x: -20 }}
+                initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: index * 0.07 }}
               >
                 <Link
                   href={item.href}
+                  title={collapsed ? item.label : undefined}
                   className={cn(
-                    "relative flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group",
+                    "relative flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg",
+                    "transition-colors duration-150 group overflow-hidden",
                     isActive
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "text-[var(--accent)] bg-[var(--accent-dim)]"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
                   )}
                 >
-                  {/* Active background indicator */}
-                  <AnimatePresence>
-                    {isActive && (
-                      <motion.div
-                        layoutId="sidebar-active"
-                        className="absolute inset-0 bg-primary/10 rounded-lg border border-primary/20"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
-                      />
+                  {/* Accent left border for active item */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="sidebar-active-border"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[var(--accent)] rounded-full"
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.3 }}
+                    />
+                  )}
+
+                  <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.97 }}>
+                    <item.icon className="h-4 w-4 shrink-0" />
+                  </motion.div>
+
+                  <AnimatePresence initial={false}>
+                    {!collapsed && (
+                      <motion.span
+                        key="label"
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: "auto" }}
+                        exit={{ opacity: 0, width: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="overflow-hidden whitespace-nowrap flex-1"
+                      >
+                        {item.label}
+                      </motion.span>
                     )}
                   </AnimatePresence>
 
-                  {/* Hover background */}
-                  {!isActive && (
-                    <div className="absolute inset-0 bg-secondary/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  {isActive && !collapsed && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5 text-[var(--accent)] shrink-0" />
+                    </motion.div>
                   )}
-                  
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="relative z-10"
-                  >
-                    <item.icon className={cn(
-                      "h-4 w-4 transition-colors duration-200",
-                      isActive ? "text-primary" : "group-hover:text-foreground"
-                    )} />
-                  </motion.div>
-                  
-                  <span className="relative z-10 flex-1">{item.label}</span>
-                  
-                  {/* Arrow indicator */}
-                  <motion.div
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: isActive ? 1 : 0, x: isActive ? 0 : -5 }}
-                    className="relative z-10"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5 text-primary" />
-                  </motion.div>
                 </Link>
               </motion.div>
             )
           })}
         </nav>
 
-        {/* Sign out */}
-        <div className="px-3 py-4 border-t border-border">
+        {/* Bottom: sign out + collapse toggle */}
+        <div className="px-2 py-3 border-t border-[var(--border)] space-y-1">
           <motion.button
             onClick={handleSignOut}
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-muted-foreground rounded-lg hover:text-foreground hover:bg-secondary/50 transition-all duration-200"
+            whileTap={{ scale: 0.97 }}
+            title={collapsed ? "Sign Out" : undefined}
+            className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium
+                       text-[var(--text-muted)] rounded-lg hover:text-[var(--text-primary)]
+                       hover:bg-[var(--bg-elevated)] transition-colors duration-150"
           >
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
+            <LogOut className="h-4 w-4 shrink-0" />
+            <AnimatePresence initial={false}>
+              {!collapsed && (
+                <motion.span
+                  key="signout"
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="overflow-hidden whitespace-nowrap"
+                >
+                  Sign Out
+                </motion.span>
+              )}
+            </AnimatePresence>
           </motion.button>
-        </div>
 
-        {/* Version indicator */}
-        <div className="px-5 py-3 border-t border-border">
-          <p className="text-[10px] text-muted-foreground/50 font-mono">
-            v1.0.0 beta
-          </p>
+          {/* Collapse toggle */}
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            className="flex w-full items-center gap-3 px-3 py-2 text-xs text-[var(--text-muted)]
+                       rounded-lg hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]
+                       transition-colors duration-150"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <PanelLeftClose className={cn("h-4 w-4 shrink-0 transition-transform duration-200", collapsed && "rotate-180")} />
+            <AnimatePresence initial={false}>
+              {!collapsed && (
+                <motion.span
+                  key="collapse-label"
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="overflow-hidden whitespace-nowrap"
+                >
+                  Collapse
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* Mobile Bottom Tab Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-border bg-card/95 backdrop-blur-xl py-2 px-4 safe-area-inset-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around
+                      border-t border-[var(--border)] bg-[var(--bg-surface)]/95 backdrop-blur-xl
+                      py-2 px-4">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href)
           return (
@@ -146,20 +212,18 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex flex-col items-center gap-1 px-4 py-2 text-xs font-medium transition-all duration-200",
-                isActive ? "text-primary" : "text-muted-foreground"
+                "relative flex flex-col items-center gap-1 px-4 py-2 text-xs font-medium transition-colors duration-150",
+                isActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
               )}
             >
               {isActive && (
                 <motion.div
                   layoutId="mobile-nav-active"
-                  className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                  className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[var(--accent)] rounded-full"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.3 }}
                 />
               )}
-              <motion.div
-                whileTap={{ scale: 0.9 }}
-              >
+              <motion.div whileTap={{ scale: 0.9 }}>
                 <item.icon className="h-5 w-5" />
               </motion.div>
               <span>{item.label}</span>
@@ -168,7 +232,7 @@ export function Sidebar() {
         })}
         <button
           onClick={handleSignOut}
-          className="flex flex-col items-center gap-1 px-4 py-2 text-xs font-medium text-muted-foreground"
+          className="flex flex-col items-center gap-1 px-4 py-2 text-xs font-medium text-[var(--text-muted)]"
         >
           <motion.div whileTap={{ scale: 0.9 }}>
             <LogOut className="h-5 w-5" />
