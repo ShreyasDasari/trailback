@@ -88,3 +88,5 @@ logs/
 .render/
 *.pem
 *.key
+.next/
+.agent/
