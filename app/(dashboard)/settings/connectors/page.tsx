@@ -84,30 +84,55 @@ export default function ConnectorsPage() {
   }
 
   const handleConnect = async (app: AppType) => {
-    if (app === 'slack') {
-      alert('Slack integration requires separate OAuth setup. Please contact support.')
-      return
-    }
-    
     setConnectingApp(app)
-    window.location.href = '/login'
+    try {
+      if (app === 'slack') {
+        // Slack OAuth goes through the backend (requires Slack App credentials)
+        const apiBase = process.env.NEXT_PUBLIC_API_URL
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) { window.location.href = '/login'; return }
+        window.location.href = `${apiBase}/api/v1/connectors/slack/install?token=${session.access_token}`
+        return
+      }
+
+      // Google apps (gmail, gdocs) — use Supabase Google OAuth with appropriate scopes
+      const scopes: Record<string, string> = {
+        gmail: 'openid email profile https://www.googleapis.com/auth/gmail.modify',
+        gdocs: 'openid email profile https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
+      }
+
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/settings/connectors`,
+          scopes: scopes[app] ?? 'openid email profile',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      })
+    } catch {
+      setConnectingApp(null)
+    }
   }
 
   const handleDisconnect = async (connector: Connector) => {
-    await supabase
-      .from("connectors")
-      .update({ 
-        is_connected: false, 
-        is_active: false,
-        oauth_token: null,
-        refresh_token: null,
-      })
-      .eq("id", connector.id)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/connectors/${connector.app}`,
+          { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } }
+        )
+      }
+    } catch { /* fallback to local update */ }
 
+    // Optimistic update
     setConnectors((prev) =>
       prev.map((c) =>
-        c.id === connector.id 
-          ? { ...c, is_connected: false, is_active: false, oauth_token: null, refresh_token: null } 
+        c.id === connector.id
+          ? { ...c, is_active: false, oauth_token: null, refresh_token: null }
           : c
       )
     )
