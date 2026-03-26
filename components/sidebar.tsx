@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
@@ -27,6 +27,15 @@ export function Sidebar() {
   const pathname = usePathname()
   const supabase = createClient()
   const [collapsed, setCollapsed] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null)
+    })
+  }, [supabase])
+
+  const avatarInitial = userEmail ? userEmail[0].toUpperCase() : '?'
 
   const handleSignOut = async () => {
     await supabase.auth.signOut({ scope: 'global' })
@@ -146,8 +155,38 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Bottom: sign out + collapse toggle */}
+        {/* Bottom: user profile + sign out + collapse toggle */}
         <div className="px-2 py-3 border-t border-[var(--border)] space-y-1">
+
+          {/* User profile row */}
+          <div
+            title={collapsed ? (userEmail ?? 'Account') : undefined}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[var(--bg-elevated)]"
+          >
+            {/* Avatar circle */}
+            <div className="flex-shrink-0 h-7 w-7 rounded-full bg-[var(--accent-dim)] border border-[rgba(110,231,183,0.2)]
+                            flex items-center justify-center text-xs font-bold text-[var(--accent)]">
+              {avatarInitial}
+            </div>
+            <AnimatePresence initial={false}>
+              {!collapsed && (
+                <motion.div
+                  key="user-info"
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex-1 min-w-0 overflow-hidden"
+                >
+                  <p className="text-xs font-medium text-[var(--text-primary)] truncate">
+                    {userEmail ?? 'Loading…'}
+                  </p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Signed in</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <motion.button
             onClick={handleSignOut}
             whileHover={{ scale: 1.02 }}
