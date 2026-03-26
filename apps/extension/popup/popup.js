@@ -7,8 +7,8 @@
 
 'use strict';
 
-// Production dashboard URL — never localhost
-const DASHBOARD_URL = 'https://trailback-e1m115036-shreyasdasaris-projects.vercel.app';
+// Production dashboard URL — trailback-ai.vercel.app
+const DASHBOARD_URL = 'https://trailback-ai.vercel.app';
 
 // ── Elements ────────────────────────────────────────────────────────────────
 

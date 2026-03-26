@@ -18,6 +18,7 @@
         "https://drive.google.com/*",
         "https://app.slack.com/*",
         "https://*.googleapis.com/*",
+        "https://trailback-ai.vercel.app/*",
         "https://trailback-e1m115036-shreyasdasaris-projects.vercel.app/*"
     ],
 
@@ -64,10 +65,11 @@
         },
         {
             "matches": [
-                "https://trailback-e1m115036-shreyasdasaris-projects.vercel.app/auth/*"
+                "https://trailback-ai.vercel.app/*",
+                "https://trailback-e1m115036-shreyasdasaris-projects.vercel.app/*"
             ],
             "js": ["content-scripts/extension-bridge.js"],
-            "run_at": "document_end"
+            "run_at": "document_idle"
         }
     ],
 
