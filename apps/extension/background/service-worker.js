@@ -42,6 +42,8 @@ const POLL_LOOKBACK_MS  = 120000; // look back 2 minutes
 // Supabase project URL — used to construct the OAuth authorize endpoint.
 // Must match NEXT_PUBLIC_SUPABASE_URL in the frontend .env.
 const SUPABASE_URL      = 'https://peciorerndstfulmplzl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlY2lvcmVybmRzdGZ1bG1wbHpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NzkwMTQsImV4cCI6MjA4NzU1NTAxNH0._98rkvU5vkFFIccePymqWUC58VKgIu23NLv7-6IRZ-0';
+
 
 // Storage keys for the Supabase session
 const STORAGE_KEY_TOKEN   = 'supabase_access_token';
@@ -77,17 +79,42 @@ async function getGoogleToken() {
 export async function signInWithSupabase() {
   const redirectUrl = chrome.identity.getRedirectURL();
 
+  // ── PKCE helpers ──────────────────────────────────────────────
+  // Supabase defaults to PKCE (implicit flow is disabled).
+  // We generate verifier+challenge here, pass challenge to Supabase,
+  // then exchange the returned code for tokens via /auth/v1/token.
+
+  function generateCodeVerifier() {
+    const array = new Uint8Array(64);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode(...array))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  async function generateCodeChallenge(verifier) {
+    const data = new TextEncoder().encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  const codeVerifier  = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+  // ── Step 1: Launch OAuth consent screen ──────────────────────
   const authUrl = new URL(`${SUPABASE_URL}/auth/v1/authorize`);
-  authUrl.searchParams.set('provider', 'google');
-  authUrl.searchParams.set('redirect_to', redirectUrl);
-  authUrl.searchParams.set('response_type', 'token');
+  authUrl.searchParams.set('provider',               'google');
+  authUrl.searchParams.set('redirect_to',            redirectUrl);
+  authUrl.searchParams.set('response_type',          'code');           // PKCE
+  authUrl.searchParams.set('code_challenge',         codeChallenge);
+  authUrl.searchParams.set('code_challenge_method',  'S256');
 
   const responseUrl = await new Promise((resolve, reject) => {
     chrome.identity.launchWebAuthFlow(
       { url: authUrl.toString(), interactive: true },
       (redirected) => {
         if (chrome.runtime.lastError || !redirected) {
-          reject(new Error(chrome.runtime.lastError?.message || 'Auth flow failed'));
+          reject(new Error(chrome.runtime.lastError?.message || 'Auth flow cancelled or failed'));
         } else {
           resolve(redirected);
         }
@@ -95,20 +122,66 @@ export async function signInWithSupabase() {
     );
   });
 
-  // Supabase returns the tokens in the URL hash fragment, e.g.:
-  // https://...#access_token=xxx&refresh_token=yyy&expires_in=3600&...
-  const hash = new URL(responseUrl).hash.substring(1); // strip leading '#'
-  const params = new URLSearchParams(hash);
+  // ── Step 2: Extract the authorization code from the redirect ──
+  // PKCE: Supabase redirects to redirectUrl?code=xxx&...
+  const redirected   = new URL(responseUrl);
+  const code         = redirected.searchParams.get('code');
 
-  const accessToken  = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-  const expiresIn    = parseInt(params.get('expires_in') || '3600', 10);
-
-  if (!accessToken) {
-    throw new Error('No access_token in Supabase OAuth response');
+  if (!code) {
+    // Fallback: some Supabase configs still use fragment (#access_token=...)
+    const hash   = redirected.hash.substring(1);
+    const hParams = new URLSearchParams(hash);
+    const accessTokenFallback = hParams.get('access_token');
+    if (accessTokenFallback) {
+      // Implicit flow worked — store and return
+      const refreshToken = hParams.get('refresh_token');
+      const expiresIn    = parseInt(hParams.get('expires_in') || '3600', 10);
+      let email = null;
+      try {
+        const p = JSON.parse(atob(accessTokenFallback.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        email = p.email || null;
+      } catch { /* non-fatal */ }
+      await chrome.storage.local.set({
+        [STORAGE_KEY_TOKEN]:   accessTokenFallback,
+        [STORAGE_KEY_REFRESH]: refreshToken,
+        [STORAGE_KEY_EXPIRY]:  Date.now() + expiresIn * 1000,
+        [STORAGE_KEY_EMAIL]:   email,
+      });
+      console.log('[Trailback] Sign-in via implicit flow. Email:', email);
+      return accessTokenFallback;
+    }
+    throw new Error('No code or access_token in Supabase OAuth response');
   }
 
-  // Decode user email from JWT middle segment (no signature verification needed here)
+  // ── Step 3: Exchange code for tokens (PKCE) ───────────────────
+  const tokenRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':        SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({
+      auth_code:     code,
+      code_verifier: codeVerifier,
+      redirect_uri:  redirectUrl,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    throw new Error(`Token exchange failed (${tokenRes.status}): ${errText}`);
+  }
+
+  const tokenData    = await tokenRes.json();
+  const accessToken  = tokenData.access_token;
+  const refreshToken = tokenData.refresh_token;
+  const expiresIn    = tokenData.expires_in ?? 3600;
+
+  if (!accessToken) {
+    throw new Error('No access_token in token exchange response');
+  }
+
+  // Decode user email from JWT payload (best-effort)
   let email = null;
   try {
     const payload = JSON.parse(atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
