@@ -409,22 +409,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
-  // Popup requests a sign-in — open the Trailback web app login page in a new tab.
-  // The extension-bridge.js content script on that domain will relay the session
-  // back once the user completes Google sign-in on the web app.
-  if (message.type === 'TRAILBACK_SIGN_IN') {
-    const DASHBOARD_URL = 'https://trailback-e1m115036-shreyasdasaris-projects.vercel.app';
-    chrome.tabs.create({ url: `${DASHBOARD_URL}/login?from=extension` }, (tab) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ ok: false, error: chrome.runtime.lastError.message });
-      } else {
-        sendResponse({ ok: true, tab_opened: tab?.id });
-      }
-    });
+  // Popup requests sign-in via direct Supabase OAuth (launchWebAuthFlow).
+  // This is the primary auth path per spec. On success, popup receives the
+  // token directly in the response and updates its UI immediately.
+  if (message.type === 'TRAILBACK_SIGNIN') {
+    signInWithSupabase()
+      .then((token) => {
+        // Also read back the email we stored during sign-in
+        chrome.storage.local.get([STORAGE_KEY_EMAIL]).then((stored) => {
+          sendResponse({ ok: true, token, email: stored[STORAGE_KEY_EMAIL] || null });
+        });
+      })
+      .catch((err) => {
+        console.error('[Trailback] Sign-in failed:', err.message);
+        sendResponse({ ok: false, error: err.message });
+      });
     return true;
   }
 
-  // extension-bridge.js content script relays the session after web app login.
+  // extension-bridge.js web-app fallback: relays session after user
+  // completes sign-in on the dashboard (used if launchWebAuthFlow fails).
   if (message.type === 'TRAILBACK_SET_TOKEN') {
     const { access_token, refresh_token, expires_at } = message;
     if (!access_token) {

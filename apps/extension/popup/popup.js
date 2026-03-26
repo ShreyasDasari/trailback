@@ -74,41 +74,32 @@ chrome.runtime.sendMessage({ type: 'TRAILBACK_AUTH_STATUS' }, (response) => {
   }
 });
 
-// ── Sign-in via Supabase OAuth (inside extension) ────────────────────────────
+// ── Sign-in via Supabase OAuth (direct — inside extension) ───────────────────
 
 signinBtn.addEventListener('click', () => {
   signinBtn.disabled = true;
-  signinLabel.textContent = 'Opening login page…';
+  signinLabel.textContent = 'Signing in…';
 
-  // Opens the web app login in a new tab.
-  // extension-bridge.js on that domain will relay the session back.
-  chrome.runtime.sendMessage({ type: 'TRAILBACK_SIGN_IN' }, (response) => {
-    if (chrome.runtime.lastError || !response?.ok) {
+  // Primary path: direct Supabase OAuth via launchWebAuthFlow.
+  // Service worker handles the chrome.identity flow and returns the token.
+  chrome.runtime.sendMessage({ type: 'TRAILBACK_SIGNIN' }, (response) => {
+    if (chrome.runtime.lastError) {
+      // Service worker may be sleeping — re-enable and let user retry
       signinBtn.disabled = false;
       signinLabel.textContent = 'Continue with Google';
-      console.error('[Trailback Popup] Failed to open login tab:', chrome.runtime.lastError || response?.error);
+      console.error('[Trailback Popup] TRAILBACK_SIGNIN error:', chrome.runtime.lastError.message);
       return;
     }
 
-    // Tab opened — update label and poll for session
-    signinLabel.textContent = 'Waiting for sign-in…';
+    if (!response?.ok) {
+      signinBtn.disabled = false;
+      signinLabel.textContent = 'Continue with Google';
+      console.error('[Trailback Popup] Sign-in failed:', response?.error);
+      return;
+    }
 
-    // Poll every 1.5s for up to 90s until the session arrives
-    let attempts = 0;
-    const maxAttempts = 60;
-    const poll = setInterval(() => {
-      attempts++;
-      chrome.runtime.sendMessage({ type: 'TRAILBACK_AUTH_STATUS' }, (res) => {
-        if (res?.signedIn) {
-          clearInterval(poll);
-          showSignedIn(res.email);
-        } else if (attempts >= maxAttempts) {
-          clearInterval(poll);
-          signinBtn.disabled = false;
-          signinLabel.textContent = 'Continue with Google';
-        }
-      });
-    }, 1500);
+    // Token returned directly — update UI immediately
+    showSignedIn(response.email);
   });
 });
 
