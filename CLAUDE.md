@@ -401,6 +401,7 @@ JWT validated via `supabase.auth.get_user(token)` — returns 401 on failure.
 - Phase 0 (2026-06-05): Branch audit — squash-merged `shreyas` into `main`. All branches consolidated.
 - Phase 1 (2026-06-05): FastAPI backend, risk classifier, Celery rollback, hand-written connectors, Supabase migrations 001–006 merged and tested (25/25 unit tests passing).
 - Phase 2 (2026-06-05): CLAUDE.md written from full repo read.
+- Phase 3 (2026-06-05): Auth hardened — login error display, new-user → /onboarding routing, error page ?reason= param, landing page dead-code removed, CORS cleaned, /auth/success neutralised, 12 auth tests added (37/37 passing).
 
 ---
 

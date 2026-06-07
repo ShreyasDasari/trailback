@@ -65,10 +65,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth/error?reason=exchange_failed`)
   }
 
+  // ── Detect new vs returning user ────────────────────────────
+  // new user: created_at and last_sign_in_at are within 10 seconds of each other
+  const { data: { user } } = await supabase.auth.getUser()
+  const isNewUser = (() => {
+    if (!user?.last_sign_in_at) return false
+    const created = new Date(user.created_at).getTime()
+    const lastSeen = new Date(user.last_sign_in_at).getTime()
+    return Math.abs(created - lastSeen) < 10_000
+  })()
+
   // ── Success: redirect based on origin ───────────────────────
-  // When the sign-in was initiated from the Chrome extension (login?from=extension
-  // → we encode ext=1 in the next param), send to /auth/success so the
-  // extension-bridge content script can relay the session to the extension.
   const next = searchParams.get("next") ?? ""
   const fromExtension = next.includes("ext=1") || searchParams.get("ext") === "1"
 
@@ -76,5 +83,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth/success?ext=1`)
   }
 
-  return NextResponse.redirect(`${origin}/timeline`)
+  return NextResponse.redirect(`${origin}${isNewUser ? "/onboarding" : "/timeline"}`)
 }

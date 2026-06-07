@@ -11,6 +11,7 @@ import { TrailbackLogoMark } from "@/components/trailback-logo"
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
+  const [authError, setAuthError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -66,7 +67,7 @@ export default function LoginPage() {
       },
     })
     if (error) {
-      console.error("[v0] OAuth error:", error)
+      setAuthError("Sign-in failed. Please try again.")
       setLoading(false)
     }
   }
@@ -178,6 +179,13 @@ export default function LoginPage() {
             )}
             {loading ? "Signing in..." : "Continue with Google"}
           </motion.button>
+
+          {/* Error message */}
+          {authError && (
+            <p className="mt-3 text-center text-sm text-red-400">
+              {authError}
+            </p>
+          )}
 
           {/* Terms */}
           <p className="text-center text-xs text-[#7a7a85] mt-6">

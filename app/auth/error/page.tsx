@@ -11,6 +11,7 @@ function AuthErrorContent() {
   const searchParams = useSearchParams()
   const errorCode = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
+  const reason = searchParams.get("reason")
   
   const supabase = createClient()
 
@@ -26,16 +27,18 @@ function AuthErrorContent() {
   }
 
   const getErrorMessage = () => {
-    if (errorDescription) {
-      return errorDescription
-    }
-    switch (errorCode) {
+    if (errorDescription) return errorDescription
+    switch (errorCode ?? reason) {
       case "access_denied":
         return "You denied access to your account. Please try again and grant the required permissions."
       case "invalid_request":
         return "The authentication request was invalid. Please try signing in again."
       case "server_error":
         return "Our authentication server encountered an error. Please try again in a moment."
+      case "no_code":
+        return "The sign-in link was invalid or expired. Please start the sign-in flow again."
+      case "exchange_failed":
+        return "Failed to complete sign-in. Please try again — if this persists, clear your cookies."
       default:
         return "There was a problem signing you in. This could be due to an expired link or a configuration issue."
     }

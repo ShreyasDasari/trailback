@@ -1,12 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
-import { Menu, X, Github, Clock, Shield, RotateCcw, FileText, Users, Download, Zap, Link2, Eye, Loader2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Menu, X, Github, Clock, Shield, RotateCcw, FileText, Users, Download, Zap, Link2, Eye } from "lucide-react"
 import { TrailbackLogoMark } from "@/components/trailback-logo"
-import { createClient } from "@/lib/supabase/client"
 
 // Navbar Component
 function Navbar() {
@@ -741,54 +739,6 @@ function Footer() {
 
 // Main Landing Page
 export default function LandingPage() {
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
-  const supabase = createClient()
-
-  useEffect(() => {
-    const handleAuth = async () => {
-      // Check if there's an OAuth code in the URL (Supabase redirected here)
-      const url = new URL(window.location.href)
-      const code = url.searchParams.get('code')
-      
-      if (code) {
-        // Exchange the code for a session
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (!error) {
-          // Clear the code from URL and redirect to dashboard
-          router.replace('/timeline')
-          return
-        } else {
-          console.error("[v0] Code exchange failed:", error.message)
-          // Clear the code from URL
-          window.history.replaceState({}, '', '/')
-        }
-      }
-      
-      // Check if user is already authenticated
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        router.replace('/timeline')
-      } else {
-        setLoading(false)
-      }
-    }
-    handleAuth()
-  }, [supabase, router])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-        >
-          <Loader2 className="w-8 h-8 text-primary" />
-        </motion.div>
-      </div>
-    )
-  }
-
   return (
     <main className="min-h-screen bg-[#0e0e10]">
       <Navbar />

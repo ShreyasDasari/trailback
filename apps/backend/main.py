@@ -21,12 +21,15 @@ import os
 
 app = FastAPI(title="Trailback API", version="1.0.0")
 
+_ALLOWED_ORIGINS = [o for o in [
+    "http://localhost:3000",
+    "https://trailback-ai.vercel.app",
+    os.environ.get("TRAILBACK_FRONTEND_URL"),  # override per environment
+] if o]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "chrome-extension://pjpekdpkbabnhkcfdkkdljnefobjicff"
-    ],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
