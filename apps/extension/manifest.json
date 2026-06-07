@@ -1,0 +1,89 @@
+{
+    "manifest_version": 3,
+    "name": "Trailback",
+    "version": "1.0.0",
+    "description": "Record and rollback every AI agent action across Gmail, Docs & Slack",
+
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "identity",
+        "alarms"
+    ],
+
+    "host_permissions": [
+        "https://mail.google.com/*",
+        "https://docs.google.com/*",
+        "https://drive.google.com/*",
+        "https://app.slack.com/*",
+        "https://*.googleapis.com/*",
+        "https://trailback-ai.vercel.app/*",
+        "https://trailback-e1m115036-shreyasdasaris-projects.vercel.app/*"
+    ],
+
+    "oauth2": {
+        "client_id": "406736484032-jb9q5s11mtsopj2e8vcbpg6p4cq1sin9.apps.googleusercontent.com",
+        "scopes": [
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.modify"
+        ]
+    },
+
+    "background": {
+        "service_worker": "background/service-worker.js",
+        "type": "module"
+    },
+
+    "content_scripts": [
+        {
+            "matches": ["https://mail.google.com/*"],
+            "js": ["content-scripts/gmail-interceptor.js"],
+            "world": "MAIN",
+            "run_at": "document_idle"
+        },
+        {
+            "matches": ["https://docs.google.com/document/*"],
+            "js": ["content-scripts/docs-interceptor.js"],
+            "world": "MAIN",
+            "run_at": "document_idle"
+        },
+        {
+            "matches": ["https://app.slack.com/*"],
+            "js": ["content-scripts/slack-interceptor.js"],
+            "world": "MAIN",
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://mail.google.com/*",
+                "https://docs.google.com/document/*",
+                "https://app.slack.com/*"
+            ],
+            "js": ["content-scripts/storage-bridge.js"],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://trailback-ai.vercel.app/*",
+                "https://trailback-e1m115036-shreyasdasaris-projects.vercel.app/*"
+            ],
+            "js": ["content-scripts/extension-bridge.js"],
+            "run_at": "document_idle"
+        }
+    ],
+
+    "action": {
+        "default_popup": "popup/popup.html",
+        "default_icon": {
+            "16": "icons/16.png",
+            "48": "icons/48.png"
+        }
+    },
+
+    "icons": {
+        "16":  "icons/16.png",
+        "48":  "icons/48.png",
+        "128": "icons/128.png"
+    }
+}
