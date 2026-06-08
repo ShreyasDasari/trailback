@@ -11,7 +11,7 @@
 # ─────────────────────────────────────────────────────────────
 
 import asyncio
-import uuid
+import os
 from datetime import datetime, timezone
 
 from celery import Task
@@ -77,62 +77,94 @@ def execute_rollback(self: Task, rollback_id: str, event_id: str, user_id: str):
         app_name = event["app"]
         metadata = event.get("metadata", {})
 
-        # ── Step 2: Fetch connector oauth_token ───────────────
-        connector_result = supabase.table("connectors") \
-            .select("oauth_token") \
-            .eq("app", app_name) \
-            .eq("user_id", user_id) \
-            .eq("is_active", True) \
-            .execute()
-
-        if not connector_result.data or not connector_result.data[0].get("oauth_token"):
-            raise ValueError(
-                f"No active connector found for app='{app_name}' and user={user_id}"
-            )
-
-        oauth_token = connector_result.data[0]["oauth_token"]
-
-        # ── Step 3: Dispatch to connector ─────────────────────
+        # ── Step 2 / 3: Dispatch via Composio or legacy connector ─
         result = None
+        use_composio = os.environ.get("TRAILBACK_USE_COMPOSIO", "true").lower() == "true"
 
-        if app_name == "gmail":
-            message_id = metadata.get("message_id")
-            if not message_id:
-                raise ValueError("No message_id in event metadata")
+        if use_composio:
+            connector_result = supabase.table("connectors") \
+                .select("composio_account_id") \
+                .eq("app", app_name) \
+                .eq("user_id", user_id) \
+                .eq("is_active", True) \
+                .execute()
 
-            from connectors.gmail import trash_email
-            result = _run_async(trash_email(message_id, oauth_token))
+            if not connector_result.data or not connector_result.data[0].get("composio_account_id"):
+                raise ValueError(
+                    f"No active Composio account found for app='{app_name}' user={user_id}. "
+                    "Connect the app via Settings → Connectors first."
+                )
+
+            composio_account_id = connector_result.data[0]["composio_account_id"]
+
+            from connectors.composio_executor import execute_action as composio_execute
+            result = composio_execute(app_name, metadata, user_id, composio_account_id)
+
+            if result.get("acknowledged"):
+                # Google Docs: no Composio action available — mark as acknowledged
+                supabase.table("rollbacks").update({
+                    "result":         "partial",
+                    "failure_reason": (
+                        "Google Docs revision restore is not supported via Composio. "
+                        "Please restore the revision manually in Google Drive."
+                    ),
+                    "executed_at":    _now_utc(),
+                }).eq("id", rollback_id).execute()
+                supabase.table("events").update({
+                    "rollback_status": "unavailable",
+                }).eq("id", event_id).execute()
+                return {"status": "acknowledged", "rollback_id": rollback_id}
 
             if not result.get("success"):
-                raise ValueError(result.get("error", "Gmail trash failed"))
-
-        elif app_name == "gdocs":
-            # Accept both keys — interceptor may send either
-            file_id = metadata.get("file_id") or metadata.get("document_id")
-            revision_id = metadata.get("revision_id")
-            if not file_id or not revision_id:
-                raise ValueError("No file_id/document_id or revision_id in event metadata")
-
-            from connectors.gdocs import restore_revision
-            result = _run_async(restore_revision(file_id, revision_id, oauth_token))
-
-            if not result.get("success"):
-                raise ValueError(result.get("error", "Google Docs restore failed"))
-
-        elif app_name == "slack":
-            channel = metadata.get("channel")
-            ts = metadata.get("ts")
-            if not channel or not ts:
-                raise ValueError("No channel or ts in event metadata")
-
-            from connectors.slack import delete_message
-            result = _run_async(delete_message(channel, ts, oauth_token))
-
-            if not result.get("success"):
-                raise ValueError(result.get("error", "Slack delete failed"))
+                raise ValueError(result.get("error", "Composio action failed"))
 
         else:
-            raise ValueError(f"Unknown app: '{app_name}'")
+            # ── Legacy: hand-written connectors with stored oauth_token ──
+            connector_result = supabase.table("connectors") \
+                .select("oauth_token") \
+                .eq("app", app_name) \
+                .eq("user_id", user_id) \
+                .eq("is_active", True) \
+                .execute()
+
+            if not connector_result.data or not connector_result.data[0].get("oauth_token"):
+                raise ValueError(
+                    f"No active connector found for app='{app_name}' and user={user_id}"
+                )
+
+            oauth_token = connector_result.data[0]["oauth_token"]
+
+            if app_name == "gmail":
+                message_id = metadata.get("message_id")
+                if not message_id:
+                    raise ValueError("No message_id in event metadata")
+                from connectors.gmail import trash_email
+                result = _run_async(trash_email(message_id, oauth_token))
+                if not result.get("success"):
+                    raise ValueError(result.get("error", "Gmail trash failed"))
+
+            elif app_name == "gdocs":
+                file_id = metadata.get("file_id") or metadata.get("document_id")
+                revision_id = metadata.get("revision_id")
+                if not file_id or not revision_id:
+                    raise ValueError("No file_id/document_id or revision_id in event metadata")
+                from connectors.gdocs import restore_revision
+                result = _run_async(restore_revision(file_id, revision_id, oauth_token))
+                if not result.get("success"):
+                    raise ValueError(result.get("error", "Google Docs restore failed"))
+
+            elif app_name == "slack":
+                channel = metadata.get("channel")
+                ts = metadata.get("ts")
+                if not channel or not ts:
+                    raise ValueError("No channel or ts in event metadata")
+                from connectors.slack import delete_message
+                result = _run_async(delete_message(channel, ts, oauth_token))
+                if not result.get("success"):
+                    raise ValueError(result.get("error", "Slack delete failed"))
+
+            else:
+                raise ValueError(f"Unknown app: '{app_name}'")
 
         # ── Step 4a: Update rollbacks row → success ───────────
         supabase.table("rollbacks").update({

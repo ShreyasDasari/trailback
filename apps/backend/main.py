@@ -427,6 +427,91 @@ async def delete_connector(
 
 
 # ─────────────────────────────────────────────────────────────
+# POST /connectors/link — Start Composio OAuth flow
+# ─────────────────────────────────────────────────────────────
+
+class ConnectorLinkRequest(BaseModel):
+    app: str
+
+@app.post("/api/v1/connectors/link")
+async def link_connector(
+    payload: ConnectorLinkRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    if payload.app not in ("gmail", "gdocs", "slack"):
+        raise HTTPException(status_code=400, detail=f"Unknown app: {payload.app!r}")
+
+    if os.environ.get("TRAILBACK_USE_COMPOSIO", "true").lower() != "true":
+        raise HTTPException(status_code=501, detail="Composio is disabled. Use the legacy OAuth flow.")
+
+    try:
+        from connectors.composio_executor import initiate_connection
+        redirect_url = initiate_connection(payload.app, current_user["user_id"])
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to initiate OAuth via Composio: {exc}")
+
+    return {"redirect_url": redirect_url}
+
+
+# ─────────────────────────────────────────────────────────────
+# POST /connectors/confirm/{app} — Sync Composio account after OAuth
+# ─────────────────────────────────────────────────────────────
+
+@app.post("/api/v1/connectors/confirm/{app_name}", status_code=200)
+async def confirm_connector(
+    app_name: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if app_name not in ("gmail", "gdocs", "slack"):
+        raise HTTPException(status_code=400, detail=f"Unknown app: {app_name!r}")
+
+    if os.environ.get("TRAILBACK_USE_COMPOSIO", "true").lower() != "true":
+        raise HTTPException(status_code=501, detail="Composio is disabled.")
+
+    user_id = current_user["user_id"]
+
+    try:
+        from connectors.composio_executor import get_composio_account_id
+        composio_account_id = get_composio_account_id(app_name, user_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to query Composio: {exc}")
+
+    if not composio_account_id:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No active Composio account found for {app_name}. Try connecting again."
+        )
+
+    # Upsert connected account into our connectors table
+    existing = supabase.table("connectors") \
+        .select("id") \
+        .eq("user_id", user_id) \
+        .eq("app", app_name) \
+        .execute()
+
+    if existing.data:
+        supabase.table("connectors") \
+            .update({
+                "composio_account_id": composio_account_id,
+                "is_active":           True,
+                "last_used_at":        datetime.utcnow().isoformat(),
+            }) \
+            .eq("id", existing.data[0]["id"]) \
+            .execute()
+    else:
+        supabase.table("connectors") \
+            .insert({
+                "user_id":             user_id,
+                "app":                 app_name,
+                "composio_account_id": composio_account_id,
+                "is_active":           True,
+            }) \
+            .execute()
+
+    return {"status": "connected", "app": app_name}
+
+
+# ─────────────────────────────────────────────────────────────
 # GET /agents — List registered agents
 # ─────────────────────────────────────────────────────────────
 

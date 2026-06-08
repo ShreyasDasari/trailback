@@ -40,7 +40,8 @@ User / AI agent SDK
 ┌──────────────────────┐
 │  Upstash Redis        │  broker + result backend
 └────────┬─────────────┘
-         │  connector functions (to be replaced by Composio in Phase 4)
+         │  Composio executor (TRAILBACK_USE_COMPOSIO=true, default)
+         │  or hand-written connectors (flag=false, legacy fallback)
          ▼
 ┌─────────────────────────────────────────────────┐
 │  Real tool APIs                                  │
@@ -188,7 +189,7 @@ All @radix-ui/* components at ^1.x–^2.x (see package.json).
 | `NEXT_PUBLIC_SUPABASE_URL` | **required** | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **required** | Supabase anon/public key |
 | `NEXT_PUBLIC_API_URL` | **required** | FastAPI backend URL (e.g. https://trailback.onrender.com) |
-| `COMPOSIO_API_KEY` | optional | Composio API key (Phase 4 — not yet used in code) |
+| `COMPOSIO_API_KEY` | optional | Composio API key (used by frontend → backend proxy only; key lives in backend env) |
 
 ### Backend (apps/backend/.env)
 | Variable | Required | Description |
@@ -196,6 +197,10 @@ All @radix-ui/* components at ^1.x–^2.x (see package.json).
 | `SUPABASE_URL` | **required** | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | **required** | Service role key — bypasses RLS. Never expose to frontend. |
 | `UPSTASH_REDIS_URL` | **required** | redis:// connection string from Upstash console |
+| `COMPOSIO_API_KEY` | **required** | Composio API key — needed when `TRAILBACK_USE_COMPOSIO=true` |
+| `TRAILBACK_USE_COMPOSIO` | optional | `true` (default) to use Composio; `false` to fall back to hand-written connectors |
+| `TRAILBACK_BASE_URL` | optional | Base URL of the frontend (default: `https://trailback-ai.vercel.app`) — used as Composio OAuth callback base |
+| `TRAILBACK_FRONTEND_URL` | optional | Override the CORS allowed origin |
 | `ENVIRONMENT` | optional | `development` or `production` |
 | `SUPABASE_ANON_KEY` | optional | Listed in .env.example but not used by current code |
 
@@ -376,13 +381,22 @@ JWT validated via `supabase.auth.get_user(token)` — returns 401 on failure.
 
 ---
 
-## 11. WHAT COMPOSIO OWNS (Phase 4 — not yet integrated)
+## 11. WHAT COMPOSIO OWNS (Phase 4 — integrated)
 
-- OAuth token storage and refresh for all connectors (Gmail, Docs, Slack, GitHub, Notion, …)
-- Tool execution — the actual API call to the 3rd-party service
+- OAuth token storage and refresh for all connectors (Gmail, Docs, Slack)
+- Tool execution — `GMAIL_MOVE_TO_TRASH`, `SLACK_DELETES_A_MESSAGE_FROM_A_CHAT`
 - Retries and rate limiting
-- `connected_accounts.link()` for generating the OAuth redirect URL for onboarding
-- **NOTE**: `connected_accounts.initiate()` is **retired as of 2026-05-08** for Composio-managed OAuth on new orgs. Always use `connected_accounts.link()`.
+- Auth config IDs: Gmail=`ac_u-Ckzzc9dnQD`, Gdocs=`ac_CsXHhod4Qrf2`, Slack=`ac_eWiREHpaZZZe`
+- `connected_accounts.initiate(integration_id, entity_id, redirect_url)` starts OAuth flow; `.redirectUrl` on the returned model is the URL to send the user to
+- Google Docs revision restore has no Composio action — rollback is marked ACKNOWLEDGED (`rollback_status=unavailable`, `result=partial`)
+- Feature flag: `TRAILBACK_USE_COMPOSIO=true` (default). Set to `false` to fall back to hand-written connectors.
+- `composio_account_id` (e.g. `ca_...`) is stored in `connectors.composio_account_id` after the user completes OAuth; the rollback worker reads this column.
+
+**Connect flow (Composio on):**
+1. Frontend: `POST /api/v1/connectors/link {app}` → receives `{redirect_url}`
+2. Frontend: navigates to `redirect_url` (Composio-hosted OAuth)
+3. Composio redirects to `/settings/connectors?connected={app}`
+4. Frontend: `POST /api/v1/connectors/confirm/{app}` → backend queries Composio, upserts `composio_account_id` into Supabase
 
 ---
 
@@ -402,6 +416,7 @@ JWT validated via `supabase.auth.get_user(token)` — returns 401 on failure.
 - Phase 1 (2026-06-05): FastAPI backend, risk classifier, Celery rollback, hand-written connectors, Supabase migrations 001–006 merged and tested (25/25 unit tests passing).
 - Phase 2 (2026-06-05): CLAUDE.md written from full repo read.
 - Phase 3 (2026-06-05): Auth hardened — login error display, new-user → /onboarding routing, error page ?reason= param, landing page dead-code removed, CORS cleaned, /auth/success neutralised, 12 auth tests added (37/37 passing).
+- Phase 4 (2026-06-05): Composio integration — `POST /connectors/link` + `POST /connectors/confirm/{app}` endpoints, `composio_executor.py` handles Gmail/Slack rollbacks and ACKNOWLEDGED for Gdocs. Feature-flagged with `TRAILBACK_USE_COMPOSIO`. Migration 007 adds `composio_account_id` column. Connectors page updated to Composio OAuth flow. 26/26 tests passing.
 
 ---
 
@@ -410,8 +425,7 @@ JWT validated via `supabase.auth.get_user(token)` — returns 401 on failure.
 - Do not touch `apps/extension/` — it is archived, not the product
 - Do not add the Chrome extension to any new user-facing flow
 - Do not route snapshot content through Composio — snapshots live only in Supabase
-- Do not use `composio.connected_accounts.initiate()` — it is retired; use `connected_accounts.link()`
-- Do not write per-connector rollback code — use the rollback profile table approach (Phase 4)
+- Do not write per-connector rollback code — use `composio_executor.execute_action()` which dispatches via Composio
 - Do not hardcode credentials — all secrets via `os.environ`
 - Do not UPDATE or DELETE from the `events` or `snapshots` tables — they are append-only
 - Do not return OAuth tokens or the Supabase SERVICE_KEY to the frontend under any circumstances

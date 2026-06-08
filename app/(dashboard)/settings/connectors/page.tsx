@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { 
-  Mail, 
-  FileText, 
-  Hash, 
-  CheckCircle2, 
+import {
+  Mail,
+  FileText,
+  Hash,
+  CheckCircle2,
   XCircle,
   Plug,
   ExternalLink,
@@ -60,24 +60,47 @@ const connectorConfigs: ConnectorConfig[] = [
 
 export default function ConnectorsPage() {
   const [connectors, setConnectors] = useState<Connector[]>([])
-  const [loading, setLoading] = useState(true)
   const [connectingApp, setConnectingApp] = useState<AppType | null>(null)
 
   const supabase = createClient()
+  const apiBase = process.env.NEXT_PUBLIC_API_URL
+
+  async function fetchConnectors() {
+    const { data } = await supabase
+      .from("connectors")
+      .select("*")
+      .order("created_at", { ascending: false })
+    setConnectors(data || [])
+  }
 
   useEffect(() => {
-    async function fetchConnectors() {
-      const { data } = await supabase
-        .from("connectors")
-        .select("*")
-        .order("created_at", { ascending: false })
+    fetchConnectors()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-      setConnectors(data || [])
-      setLoading(false)
+  // Handle redirect back from Composio OAuth: /settings/connectors?connected=gmail
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const connected = params.get("connected") as AppType | null
+    if (!connected) return
+
+    async function confirmConnection(app: AppType) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      try {
+        await fetch(`${apiBase}/api/v1/connectors/confirm/${app}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+      } catch { /* non-fatal — connector will appear on next page load */ }
+      await fetchConnectors()
+      // Clean up query param without triggering a navigation
+      window.history.replaceState({}, "", "/settings/connectors")
     }
 
-    fetchConnectors()
-  }, [supabase])
+    confirmConnection(connected)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const getConnectorStatus = (app: AppType): Connector | undefined => {
     return connectors.find((c) => c.app === app && c.is_active)
@@ -86,32 +109,22 @@ export default function ConnectorsPage() {
   const handleConnect = async (app: AppType) => {
     setConnectingApp(app)
     try {
-      if (app === 'slack') {
-        // Slack OAuth goes through the backend (requires Slack App credentials)
-        const apiBase = process.env.NEXT_PUBLIC_API_URL
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) { window.location.href = '/login'; return }
-        window.location.href = `${apiBase}/api/v1/connectors/slack/install?token=${session.access_token}`
-        return
-      }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { window.location.href = "/login"; return }
 
-      // Google apps (gmail, gdocs) — use Supabase Google OAuth with appropriate scopes
-      const scopes: Record<string, string> = {
-        gmail: 'openid email profile https://www.googleapis.com/auth/gmail.modify',
-        gdocs: 'openid email profile https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
-      }
-
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/settings/connectors`,
-          scopes: scopes[app] ?? 'openid email profile',
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
+      const res = await fetch(`${apiBase}/api/v1/connectors/link`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ app }),
       })
+
+      if (!res.ok) throw new Error(`Link request failed: ${res.status}`)
+
+      const { redirect_url } = await res.json()
+      window.location.href = redirect_url
     } catch {
       setConnectingApp(null)
     }
