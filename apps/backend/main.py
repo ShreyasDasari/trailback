@@ -452,27 +452,30 @@ async def link_connector(
     try:
         from connectors.composio_executor import initiate_connection
         redirect_url, connection_request_id = initiate_connection(payload.app, user_id)
+
+        # Store the connection request ID so /confirm can call wait_for_connection()
+        existing = supabase.table("connectors") \
+            .select("id") \
+            .eq("user_id", user_id) \
+            .eq("app", payload.app) \
+            .execute()
+
+        if existing.data:
+            supabase.table("connectors") \
+                .update({"oauth_token": f"cr:{connection_request_id}", "is_active": False}) \
+                .eq("id", existing.data[0]["id"]) \
+                .execute()
+        else:
+            supabase.table("connectors") \
+                .insert({"user_id": user_id, "app": payload.app,
+                         "oauth_token": f"cr:{connection_request_id}", "is_active": False}) \
+                .execute()
+
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.exception("Composio initiate_connection failed for app=%s", payload.app)
-        raise HTTPException(status_code=502, detail=f"Failed to initiate OAuth via Composio: {exc}")
-
-    # Store the connection request ID so /confirm can call wait_for_connection()
-    existing = supabase.table("connectors") \
-        .select("id") \
-        .eq("user_id", user_id) \
-        .eq("app", payload.app) \
-        .execute()
-
-    if existing.data:
-        supabase.table("connectors") \
-            .update({"oauth_token": f"cr:{connection_request_id}", "is_active": False}) \
-            .eq("id", existing.data[0]["id"]) \
-            .execute()
-    else:
-        supabase.table("connectors") \
-            .insert({"user_id": user_id, "app": payload.app,
-                     "oauth_token": f"cr:{connection_request_id}", "is_active": False}) \
-            .execute()
+        logger.exception("link_connector failed for app=%s", payload.app)
+        raise HTTPException(status_code=502, detail=f"Failed to start OAuth flow: {exc}")
 
     return {"redirect_url": redirect_url}
 
