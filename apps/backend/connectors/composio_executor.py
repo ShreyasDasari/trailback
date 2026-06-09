@@ -24,8 +24,8 @@ def initiate_connection(app: str, user_id: str) -> tuple[str, str]:
     """
     callback_url = f"{_TRAILBACK_BASE_URL}/settings/connectors?connected={app}"
     client = get_client()
-    # SDK v1: initiate(user_id, auth_config_id, *, callback_url=...)
-    request = client.connected_accounts.initiate(
+    # SDK 0.13.1: link() is the correct method for Composio-managed OAuth
+    request = client.connected_accounts.link(
         user_id,
         auth_config_id(app),
         callback_url=callback_url,
@@ -94,10 +94,10 @@ def execute_action(
         return {"success": False, "error": f"Unhandled app: {app!r}"}
 
     client = get_client()
-    result = client.use(
-        action=action_name,
-        params=params,
-        entity_id=user_id,
-        connected_account=connected_account_id,
+    result = client.tools.execute(
+        slug=action_name,
+        arguments=params,
+        connected_account_id=connected_account_id,
+        user_id=user_id,
     )
     return {"success": True, "api_response": result}
