@@ -1,4 +1,4 @@
-composio==1.0.0rc2
+composio==0.13.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
