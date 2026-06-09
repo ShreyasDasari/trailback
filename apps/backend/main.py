@@ -447,12 +447,32 @@ async def link_connector(
     if os.environ.get("TRAILBACK_USE_COMPOSIO", "true").lower() != "true":
         raise HTTPException(status_code=501, detail="Composio is disabled. Use the legacy OAuth flow.")
 
+    user_id = current_user["user_id"]
+
     try:
         from connectors.composio_executor import initiate_connection
-        redirect_url = initiate_connection(payload.app, current_user["user_id"])
+        redirect_url, connection_request_id = initiate_connection(payload.app, user_id)
     except Exception as exc:
         logger.exception("Composio initiate_connection failed for app=%s", payload.app)
         raise HTTPException(status_code=502, detail=f"Failed to initiate OAuth via Composio: {exc}")
+
+    # Store the connection request ID so /confirm can call wait_for_connection()
+    existing = supabase.table("connectors") \
+        .select("id") \
+        .eq("user_id", user_id) \
+        .eq("app", payload.app) \
+        .execute()
+
+    if existing.data:
+        supabase.table("connectors") \
+            .update({"oauth_token": f"cr:{connection_request_id}", "is_active": False}) \
+            .eq("id", existing.data[0]["id"]) \
+            .execute()
+    else:
+        supabase.table("connectors") \
+            .insert({"user_id": user_id, "app": payload.app,
+                     "oauth_token": f"cr:{connection_request_id}", "is_active": False}) \
+            .execute()
 
     return {"redirect_url": redirect_url}
 
@@ -474,43 +494,37 @@ async def confirm_connector(
 
     user_id = current_user["user_id"]
 
-    try:
-        from connectors.composio_executor import get_composio_account_id
-        composio_account_id = get_composio_account_id(app_name, user_id)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to query Composio: {exc}")
-
-    if not composio_account_id:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No active Composio account found for {app_name}. Try connecting again."
-        )
-
-    # Upsert connected account into our connectors table
-    existing = supabase.table("connectors") \
-        .select("id") \
+    # Read the pending connection request ID stored by /link
+    row = supabase.table("connectors") \
+        .select("id, oauth_token") \
         .eq("user_id", user_id) \
         .eq("app", app_name) \
         .execute()
 
-    if existing.data:
-        supabase.table("connectors") \
-            .update({
-                "composio_account_id": composio_account_id,
-                "is_active":           True,
-                "last_used_at":        datetime.utcnow().isoformat(),
-            }) \
-            .eq("id", existing.data[0]["id"]) \
-            .execute()
-    else:
-        supabase.table("connectors") \
-            .insert({
-                "user_id":             user_id,
-                "app":                 app_name,
-                "composio_account_id": composio_account_id,
-                "is_active":           True,
-            }) \
-            .execute()
+    if not row.data or not (row.data[0].get("oauth_token") or "").startswith("cr:"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"No pending connection found for {app_name}. Click Connect again."
+        )
+
+    connection_request_id = row.data[0]["oauth_token"].removeprefix("cr:")
+
+    try:
+        from connectors.composio_executor import confirm_connection
+        composio_account_id = confirm_connection(connection_request_id)
+    except Exception as exc:
+        logger.exception("Composio confirm_connection failed for app=%s", app_name)
+        raise HTTPException(status_code=502, detail=f"Failed to confirm Composio connection: {exc}")
+
+    supabase.table("connectors") \
+        .update({
+            "composio_account_id": composio_account_id,
+            "oauth_token":         None,
+            "is_active":           True,
+            "last_used_at":        datetime.utcnow().isoformat(),
+        }) \
+        .eq("id", row.data[0]["id"]) \
+        .execute()
 
     return {"status": "connected", "app": app_name}
 

@@ -2,8 +2,8 @@
 tests/test_connectors.py — Composio connector endpoint tests.
 
 Covers:
-  - POST /connectors/link  → initiate OAuth, return redirect_url
-  - POST /connectors/confirm/{app} → sync Composio account into DB
+  - POST /connectors/link  → initiate OAuth, store request ID, return redirect_url
+  - POST /connectors/confirm/{app} → wait_for_connection, store composio_account_id
 
 All external calls (Composio SDK, Supabase) are mocked.
 """
@@ -35,6 +35,27 @@ def _mock_user(user_id: str = "user-123", email: str = "test@example.com"):
 
 def _auth_headers():
     return {"Authorization": "Bearer valid-token"}
+
+
+def _mock_db_no_row():
+    """Supabase mock that returns no existing connector row."""
+    m = MagicMock()
+    m.table.return_value.select.return_value \
+        .eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+    m.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[])
+    return m
+
+
+def _mock_db_with_row(token: str = "cr:req-abc123"):
+    """Supabase mock that returns one existing connector row."""
+    m = MagicMock()
+    m.table.return_value.select.return_value \
+        .eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{"id": "conn-uuid", "oauth_token": token}]
+        )
+    m.table.return_value.update.return_value \
+        .eq.return_value.execute.return_value = MagicMock(data=[])
+    return m
 
 
 # ─────────────────────────────────────────────────────────────
@@ -71,10 +92,11 @@ class TestConnectorLink:
     def test_valid_app_returns_redirect_url(self, app_name):
         fake_url = f"https://composio.dev/oauth?app={app_name}&token=abc"
         with patch("api.deps.supabase") as mock_supabase, \
-             patch("connectors.composio_executor.initiate_connection") as mock_init, \
+             patch("main.supabase", _mock_db_no_row()), \
+             patch("connectors.composio_executor.initiate_connection",
+                   return_value=(fake_url, "req-123")), \
              patch.dict(os.environ, _COMPOSIO_ENV):
             mock_supabase.auth.get_user.return_value = _mock_user()
-            mock_init.return_value = fake_url
             response = client.post(
                 "/api/v1/connectors/link",
                 json={"app": app_name},
@@ -125,42 +147,37 @@ class TestConnectorConfirm:
             )
         assert response.status_code == 501
 
-    def test_no_active_composio_account_returns_404(self):
+    def test_no_pending_row_returns_400(self):
         with patch("api.deps.supabase") as mock_supabase, \
-             patch("connectors.composio_executor.get_composio_account_id") as mock_get, \
+             patch("main.supabase", _mock_db_no_row()), \
              patch.dict(os.environ, _COMPOSIO_ENV):
             mock_supabase.auth.get_user.return_value = _mock_user()
-            mock_get.return_value = None
             response = client.post(
                 "/api/v1/connectors/confirm/gmail",
                 headers=_auth_headers(),
             )
-        assert response.status_code == 404
+        assert response.status_code == 400
 
     def test_composio_sdk_error_returns_502(self):
         with patch("api.deps.supabase") as mock_supabase, \
-             patch("connectors.composio_executor.get_composio_account_id") as mock_get, \
+             patch("main.supabase", _mock_db_with_row("cr:req-abc")), \
+             patch("connectors.composio_executor.confirm_connection") as mock_confirm, \
              patch.dict(os.environ, _COMPOSIO_ENV):
             mock_supabase.auth.get_user.return_value = _mock_user()
-            mock_get.side_effect = Exception("SDK timeout")
+            mock_confirm.side_effect = Exception("SDK timeout")
             response = client.post(
                 "/api/v1/connectors/confirm/gmail",
                 headers=_auth_headers(),
             )
         assert response.status_code == 502
 
-    def test_confirm_inserts_new_connector(self):
+    def test_confirm_stores_account_id(self):
         with patch("api.deps.supabase") as mock_supabase, \
-             patch("main.supabase") as mock_db, \
-             patch("connectors.composio_executor.get_composio_account_id") as mock_get, \
+             patch("main.supabase", _mock_db_with_row("cr:req-abc")), \
+             patch("connectors.composio_executor.confirm_connection",
+                   return_value="ca_abc123"), \
              patch.dict(os.environ, _COMPOSIO_ENV):
             mock_supabase.auth.get_user.return_value = _mock_user()
-            mock_get.return_value = "ca_abc123"
-            # No existing row → triggers INSERT
-            mock_db.table.return_value.select.return_value \
-                .eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
-            mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[])
-
             response = client.post(
                 "/api/v1/connectors/confirm/gmail",
                 headers=_auth_headers(),
@@ -168,22 +185,13 @@ class TestConnectorConfirm:
         assert response.status_code == 200
         assert response.json() == {"status": "connected", "app": "gmail"}
 
-    def test_confirm_updates_existing_connector(self):
+    def test_confirm_slack_stores_account_id(self):
         with patch("api.deps.supabase") as mock_supabase, \
-             patch("main.supabase") as mock_db, \
-             patch("connectors.composio_executor.get_composio_account_id") as mock_get, \
+             patch("main.supabase", _mock_db_with_row("cr:req-slack")), \
+             patch("connectors.composio_executor.confirm_connection",
+                   return_value="ca_slack456"), \
              patch.dict(os.environ, _COMPOSIO_ENV):
             mock_supabase.auth.get_user.return_value = _mock_user()
-            mock_get.return_value = "ca_abc123"
-            # Existing row → triggers UPDATE
-            existing_id = "existing-connector-uuid"
-            mock_db.table.return_value.select.return_value \
-                .eq.return_value.eq.return_value.execute.return_value = MagicMock(
-                    data=[{"id": existing_id}]
-                )
-            mock_db.table.return_value.update.return_value \
-                .eq.return_value.execute.return_value = MagicMock(data=[])
-
             response = client.post(
                 "/api/v1/connectors/confirm/slack",
                 headers=_auth_headers(),

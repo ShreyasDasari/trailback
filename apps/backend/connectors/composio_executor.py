@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 from connectors.composio_client import get_client, auth_config_id
 
@@ -15,55 +14,40 @@ _ROLLBACK_ACTIONS: dict[str, str] = {
 }
 
 
-def initiate_connection(app: str, user_id: str) -> str:
+def initiate_connection(app: str, user_id: str) -> tuple[str, str]:
     """
     Start the Composio OAuth flow for the given app.
 
-    Returns the redirect URL to send the user's browser to.
-    After the user completes OAuth, Composio redirects back to
-    /settings/connectors?connected={app}.
+    Returns (redirect_url, connection_request_id).
+    The caller must store connection_request_id so confirm_connection() can
+    call wait_for_connection() after the user completes OAuth.
     """
     callback_url = f"{_TRAILBACK_BASE_URL}/settings/connectors?connected={app}"
     client = get_client()
+    # SDK v1: initiate(user_id, auth_config_id, *, callback_url=...)
     request = client.connected_accounts.initiate(
-        integration_id=auth_config_id(app),
-        entity_id=user_id,
-        redirect_url=callback_url,
+        user_id,
+        auth_config_id(app),
+        callback_url=callback_url,
     )
-    redirect = getattr(request, "redirectUrl", None) or getattr(request, "redirect_url", None)
-    if not redirect:
+    if not request.redirect_url:
         raise RuntimeError(
             f"Composio returned no redirect URL for {app!r}. "
             "Check that the auth config ID is correct in the Composio dashboard."
         )
-    return redirect
+    return request.redirect_url, request.id
 
 
-def get_composio_account_id(app: str, user_id: str) -> Optional[str]:
+def confirm_connection(connection_request_id: str) -> str:
     """
-    Query Composio for the active connected account ID for this user + app.
-
-    Returns the account ID (e.g. "ca_abc123") or None if not found.
-    Call this after the user completes the OAuth redirect.
+    Called after the user completes OAuth. Waits for the connection to
+    become active and returns the connected account ID (e.g. 'ca_...').
     """
     client = get_client()
-    try:
-        accounts = client.connected_accounts.list(entity_id=user_id)
-    except TypeError:
-        # Older SDK versions don't accept entity_id — filter manually
-        accounts = [
-            a for a in client.connected_accounts.list()
-            if getattr(a, "entityId", None) == user_id
-        ]
-
-    app_lower = app.lower()
-    for account in accounts:
-        account_app = (getattr(account, "appName", None) or "").lower()
-        status = (getattr(account, "status", "") or "").upper()
-        if account_app == app_lower and status == "ACTIVE":
-            return account.id
-
-    return None
+    account = client.connected_accounts.wait_for_connection(
+        connection_request_id, timeout=30
+    )
+    return account.id
 
 
 def execute_action(
