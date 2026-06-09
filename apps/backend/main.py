@@ -17,7 +17,10 @@ import hashlib
 import json
 import csv
 import io
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Trailback API", version="1.0.0")
 
@@ -448,6 +451,7 @@ async def link_connector(
         from connectors.composio_executor import initiate_connection
         redirect_url = initiate_connection(payload.app, current_user["user_id"])
     except Exception as exc:
+        logger.exception("Composio initiate_connection failed for app=%s", payload.app)
         raise HTTPException(status_code=502, detail=f"Failed to initiate OAuth via Composio: {exc}")
 
     return {"redirect_url": redirect_url}
